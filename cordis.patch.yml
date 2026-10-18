@@ -1,0 +1,52 @@
+# dsh-purge bundle patch
+#
+# 清洗 + 演练台都在本插件内（lib/redteam、presets/redteam、skills/redteam）。
+# 只装 dsh-purge，不外接、不 link 其它红队包。
+#
+# 注意：bundle 自己的 patch 只作用在自己这一层 entry 树上（cordis-plugin-include 的
+# applyEntryPatches(data=本 bundle 的树, patches=本文件)），**看不到**其它 bundle 或
+# 用户层的东西。所以这里别再写指向外部 id 的行（- id: dsh-purge / redteam-mode …）：
+# 它们永远命不中，只会每条刷一次 "patch: entry … not found"（0.2.1 已经这么刷）。
+# 真要关某个全局行，写进 profiles/<name>/cordis.patch.yml（用户层），那一层能命中。
+
+- id: system-prompt
+  config:
+    includeHarnessIdentity: false
+    personaPrefix: ""
+    personaSuffix: ""
+
+- insert:
+    - id: dsh-purge
+      name: 'dsh-purge'
+      inject: [systemPrompt, tools]
+      config:
+        enabled: true
+        autoApplyOnStart: false
+        autoUpdateOnStart: false
+        autoRevertOnMissing: false
+        injectOnce: false
+        stripMnemon: true
+        verbose: false
+        postPrompt: ""
+        postPromptOrder: 5100
+        autoRetry: true
+        retryMax: 3
+        autoContinue: false
+        continueMax: 3
+        continueText: "继续"
+        capabilityProtocol: true
+        hooksDenyBypass: true
+
+    # 演练台：预设 + 技能落地（本插件 lib/redteam）
+    - id: dsh-purge-redteam
+      name: dsh-purge/redteam
+
+    # 演练台事实库（SQLite），数据在 $DSH_HOME/redteam
+    - id: dsh-purge-redteam-store
+      name: dsh-purge/redteam/store
+      config:
+        root: !!js dshHomePath('redteam')
+
+    # 演练台 HTTP 桥 POST /redteam/api
+    - id: dsh-purge-redteam-ui
+      name: dsh-purge/redteam/ui

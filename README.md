@@ -65,6 +65,15 @@ pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix"
 
 In the GUI: **Plugins panel → Add plugin** accepts a Git address, a tarball or a local absolute path — the host performs a `git ls-remote` reachability check first (5 s default), so a blocked GitHub is reported as such. Full steps, the two `package.json` fields that decide whether a bundle actually loads, and rescue paths when DSH will not start: **[INSTALL.md](INSTALL.md)**.
 
+> **⚠️ On Desktop, the `desktop` profile cannot be managed by the ordinary `dsh` binary.**
+> `dsh plugin --profile desktop …` fails outright with
+> `error: profile "desktop" is managed exclusively by the Electron application` —
+> only the desktop app's own `<DSH install dir>\resources\app\lib\desktop-cli.js` gets through
+> (the Electron carrier passing `manageDesktopProfile: true` is the sole gate).
+> So use the GUI plugin panel, or `desktop-cli.js`.
+> Full procedure, including the PowerShell trap where `DSH Desktop.exe` prints nothing to stdout,
+> is in **[INSTALL.en.md](INSTALL.en.md)** and **[INSTALL.md](INSTALL.md)**.
+
 ### ⚠️ Do not "update" this plugin
 
 Both this fork and upstream are **`1.1.71`**, so the plugin manager may offer an update that would replace these fixes with the broken copy and bring the duplicated-insert startup failure right back.

@@ -65,6 +65,14 @@ pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix"
 
 GUI 里：**插件面板 → 添加插件**接受 Git 地址、压缩包或本地绝对路径（宿主会先做一次 `git ls-remote` 连通性检查，默认 5 秒超时，所以 GitHub 被墙会明确报出来）。完整步骤、决定 bundle 是否真被加载的那两个 `package.json` 字段、以及 DSH 打不开时的救援路径，见 **[INSTALL.md](INSTALL.md)**。
 
+> **⚠️ 桌面端上用 CLI 装的话，`desktop` profile 不能走普通的 `dsh`。**
+> `dsh plugin --profile desktop …` 会直接报
+> `error: profile "desktop" is managed exclusively by the Electron application` ——
+> 只有桌面端自带的 `<DSH 安装目录>\resources\app\lib\desktop-cli.js` 放行
+> （Electron 载体传入 `manageDesktopProfile: true` 是唯一放行条件）。
+> 所以要么用 GUI 的插件面板，要么用 `desktop-cli.js`。
+> 完整流程（含 PowerShell 上 `DSH Desktop.exe` 不输出 stdout 的坑）见 **[INSTALL.md](INSTALL.md)** 与 **[INSTALL.en.md](INSTALL.en.md)**。
+
 ### ⚠️ 不要"更新"这个插件
 
 本 fork 与上游的版本号**都是 `1.1.71`**，插件管理器可能提供一个"更新"，一旦点了就会用上游坏版本覆盖修复，重复 insert 的启动故障立刻回来。

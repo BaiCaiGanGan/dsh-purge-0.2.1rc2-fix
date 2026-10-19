@@ -1,12 +1,27 @@
 # FIXES.md — 逐条说明与验证方法
 
-面向想把这些修复合并回上游、或想自己复核的人。每条都给出**症状 → 根因（宿主侧证据）→ 改法 → 怎么验证**。
+本文件逐条记录九处适配修复：**症状 → 根因（宿主侧证据）→ 改动 → 复核方法**。面向需要把这些修复合并回上游、或在自有环境复核的使用方。
 
-所有修复都写成**版本自适应**：先探测宿主里有没有对应结构，没有就让路，因此对 `0.2.0-rc.2` 不产生回归。
+所有修复均写成**版本自适应**：先探测宿主是否存在对应结构，不存在则不介入，因此对 `0.2.0-rc.2` 不产生回归。
+
+| 编号 | 主题 |
+|---|---|
+| FIX-01 | bundle patch 形状：重复 `- insert:` 块，以及上游自带的重复引用行 |
+| FIX-02 | `toolFilter` / `persona` 已从 `tool-subagent` 的 Config 中删除 |
+| FIX-03 | 宿主不再注册 `cwd` 提示词变量 |
+| FIX-04 | `#40 COMPLETE_PROMPT_KEEP_INJECT` 锚点失配 |
+| FIX-05 | `desktop-shell` 定位不到主进程文件 |
+| FIX-06 | `assemble` 抛错时整个提示词被丢空 |
+| FIX-07 | `hostFs` 白名单漏 `closeSync` — 备份一份都写不出来，还原/卸载全废 |
+| FIX-08 | `tool-workflow` / `tool-ralph` 没禁用 — 子代理能绕过 `maxDepth: 1` 递归 |
+| FIX-09 | `repairOfficialCliAfterUnpack()` 同步函数里调 async，Node 24 升级成 fatal |
+| 附录 A | 补丁注册表的 `retired` 标记 |
+| 附录 B | 未变更项：Ctrl+Enter 行为 |
+| 附录 C | 复核方法汇总 |
 
 ---
 
-## 1. bundle patch 形状：重复 `- insert:` 块，以及上游自带的重复引用行
+## FIX-01 · bundle patch 形状：重复 `- insert:` 块，以及上游自带的重复引用行
 
 **症状**：DSH 启动不了；或能启动但设置页里插件配置渲染成两块；同一个插件被挂载两次。
 
@@ -42,7 +57,7 @@ grep '^    - id:' cordis.patch.yml
 # ② 用宿主自己的引擎解析，确认没有重复插入
 node -e "
 const {pathToFileURL}=require('node:url'), path=require('node:path');
-const APP='D:/DSH Desktop/resources/app';
+const APP=process.env.DSH_APP || process.argv[2];   // ← 传你的 <DSH 安装目录>/resources/app
 import(pathToFileURL(path.join(APP,'node_modules/@deepseek-ai/dsh-app-boot/lib/index.js')).href).then((boot)=>{
   const dir=boot.resolveProfileDir('desktop', process.env.DSH_HOME||require('node:os').homedir()+'/.dsh');
   const p=boot.loadProfileDirectory('check', dir, path.join(APP,'package.json'));
@@ -60,7 +75,7 @@ import(pathToFileURL(path.join(APP,'node_modules/@deepseek-ai/dsh-app-boot/lib/i
 
 ---
 
-## 2. `toolFilter` / `persona` 已从 `tool-subagent` 的 Config 中删除
+## FIX-02 · `toolFilter` / `persona` 已从 `tool-subagent` 的 Config 中删除
 
 **症状**：
 
@@ -105,7 +120,7 @@ DSH_HOME=<tmp> ELECTRON_RUN_AS_NODE=1 "<DSH>/DSH Desktop.exe" \
 
 ---
 
-## 3. 宿主不再注册 `cwd` 提示词变量
+## FIX-03 · 宿主不再注册 `cwd` 提示词变量
 
 **症状**：`unknown prompt variable "{{cwd}}" in section "X"; registered variables: model, provider`
 → `renderPrompt` 抛错 → 整批 sections 被丢（表现为"任务到一半苏醒 / 拒答"）。或者用别的办法
@@ -146,7 +161,7 @@ import('./lib/identity.js').then((m)=>{
 
 ---
 
-## 4. `#40 COMPLETE_PROMPT_KEEP_INJECT` 锚点失配
+## FIX-04 · `#40 COMPLETE_PROMPT_KEEP_INJECT` 锚点失配
 
 **症状**：`patchStatus` 里 #40 是 `skipped`（非严格模式在已存在的文件里没命中）→
 complete 模式下 purge 注入被吞。
@@ -179,7 +194,7 @@ ELECTRON_RUN_AS_NODE=1 "<DSH>/DSH Desktop.exe" lib/audit-apply.mjs 40
 
 ---
 
-## 5. `desktop-shell` 定位不到主进程文件
+## FIX-05 · `desktop-shell` 定位不到主进程文件
 
 **症状**：`patchStatus` 里 `desktop-shell` 系列报 `missing_file`；所有改 `lib/main.js` 的补丁静默失效。
 
@@ -193,7 +208,7 @@ ELECTRON_RUN_AS_NODE=1 "<DSH>/DSH Desktop.exe" lib/audit-apply.mjs 40
 
 ---
 
-## 6. assemble 抛错时整个提示词被丢空
+## FIX-06 · assemble 抛错时整个提示词被丢空
 
 **症状**：宿主 `system-prompt/assemble` 一抛（比如上面第 3 条的未知变量），兜底返回
 `{ sections: [], contexts: [], tools: [] }` —— **整个系统提示词消失**，表现就是"人格掉了 / 拒答"。
@@ -207,6 +222,131 @@ ELECTRON_RUN_AS_NODE=1 "<DSH>/DSH Desktop.exe" lib/audit-apply.mjs 40
 
 **验证**：让宿主抛一次（例如临时造一个含未注册变量的段），确认输出仍有 `dsh-purge` 与
 capabilities 段，且没有 `{ {var}}` 残渣。
+
+---
+
+> 第 7–9 条是**取长补短**时并进来的：来自对
+> [`evilevil/dsh-purge-021rc2`](https://github.com/evilevil/dsh-purge-021rc2) 的逐条比对。
+> 它基于上游 1.1.72，多修了三条我们 1.1.71 基线上仍在的缺陷。下面每条都标注了来源与我们的差异。
+
+## FIX-07 · `hostFs` 白名单漏 `closeSync` → 备份一份都写不出来，还原/卸载全废
+
+**症状**：应用之后宿主目录下**一个 `.dshpurge.bak` 都没有**；点"还原"没东西可还原，
+卸载也回滚不回去。界面上不一定报错——错误被 `try{}catch{}` 吞掉了。
+
+**根因**：`lib/extract-asar.js` 的 `HOST_SYNC` 白名单漏了 `closeSync`，而 `hostFs` 的方法
+是照这张表生成的：
+
+```js
+for (const method of HOST_SYNC) hostFs[method] = route(method, false);
+```
+
+不在表里 → **`hostFs.closeSync` 根本不存在**。而 `backupAll()` 用它释放占位句柄：
+
+```js
+placeholderFd = fs.openSync(bak, "wx");                          // 建占位，防 overwrite 竞态
+try { fs.closeSync(placeholderFd); } catch { /* ignore */ }       // ← TypeError，静默吞掉
+await atomicCopyFile(fp, bak);                                   // ← 句柄没释放
+```
+
+句柄泄漏后 Windows 上 rename 报 **EPERM**，`atomicCopyFile` 失败 → 备份被 `unlinkSync` 清掉
+→ 一份都不剩。`fsyncSync` / `readSync` 属同一批原子读写路径，一起缺。
+
+**改法**：新增 `HOST_FD` 表并单独安装 —— fd 类方法的第一个参数是**文件描述符不是路径**，
+不能交给 `route()`（否则会把 `String(fd)` 当路径去探 asar，还污染探针缓存）：
+
+```js
+const HOST_FD = [
+  "closeSync", "fsyncSync", "fdatasyncSync", "readSync", "writeSync",
+  "futimesSync", "ftruncateSync",
+];
+for (const method of HOST_FD) hostFs[method] = (...args) => nodeFs[method](...args);
+```
+
+fd 是进程级 OS 句柄，`node:fs` 与 `original-fs` 共用同一张描述符表，所以无论 `openSync`
+当初路由到哪一侧，close / read / fsync 都成立。同时把 path 类的 `truncateSync` /
+`utimesSync` 补进 `HOST_SYNC`。
+
+> 来源：`evilevil/dsh-purge-021rc2` 的 #127 / #106。它把 fd 类和 path 类混在一张表里、
+> 都走 `route()`；我们拆成两张表，避免拿 fd 去探 asar。
+
+**验证**：对同一批目标文件跑两次 `backupAll()`：
+
+```
+修前：made 0 | errors 4 | .bak 0    首个错误 EPERM: operation not permitted, rename
+修后：made 4 | errors 0 | .bak 4    第二次 made 0（wx 命中 EEXIST，幂等）
+```
+
+```js
+// 直接确认方法有没有被装上
+import { hostFs } from "./lib/extract-asar.js";
+console.log(typeof hostFs.closeSync, typeof hostFs.readSync);  // 都应为 "function"
+```
+
+## FIX-08 · `tool-workflow` / `tool-ralph` 没禁用 → 子代理能绕过 `maxDepth: 1` 递归
+
+**症状**：红队预设号称"子智能体是叶子节点"，但子代理实际上还能继续往下派活。
+
+**根因**：这条约束原来由 `toolFilter.deny: [subagent_fork, workflow, ralph]` 提供，
+而 `toolFilter` 在 0.2.1-rc.2 已删除。换成 `maxDepth: 1` 之后只堵住了**一条**路径：
+
+- ✅ 子会话调 `tool-subagent` → `resolveChildDepth` 报 `subagent depth 2 exceeds maxDepth 1`
+- ❌ 子会话调 `workflow` / `ralph` → 它们走另一条路
+
+因为 `dsh-workflow-ptc` 的 `childRequest()` 组 spawn 请求时只带
+`prompt / provider / model / schema`，**不带 `maxDepth`**（该文件里 `maxDepth` 出现 0 次），
+于是落到 `@deepseek-ai/dsh-tool-subagent` schema 的 `.default(10)`。
+
+而子会话**继承父预设的工具表**（`agentPreset` 省略 = inherit the parent agent's current
+preset），所以预设里开着 `tool-workflow`，子代理手上就真有这个工具。
+
+**改法**：`presets/redteam/agent.cordis.yml` 里给这两行加 `disabled: true`（引擎
+`workflow-ptc` 保留不动，只摘工具）。红队五个执行角色走 `tool-subagent(spawn)`，不依赖它们。
+
+> 来源：`evilevil/dsh-purge-021rc2`。
+> 我们原来那段注释写着"② 子会话工具目录里本来就没有 workflow / ralph 的引擎（本预设没给子层装）"
+> —— 与事实相反，已一并改正。
+
+**验证**：
+
+```bash
+# 预设应仍可解析、没有重复 id，且两工具为 disabled
+node -e "…"   # 见「复核这套修复的方法」
+```
+
+期望输出：`tool-workflow : disabled` / `tool-ralph : disabled` / `workflow-ptc : ENABLED`。
+
+## FIX-09 · `repairOfficialCliAfterUnpack()` 同步函数里调 async，Node 24 升级成致命错
+
+**症状**：桌面端点"应用"后 `dsh: fatal load failure`，宿主直接挂。
+
+**根因**：该函数是同步的，却在里面调 async 的 `atomicCopyFile()` 且不 `await`：
+
+```js
+try { atomicCopyFile(fp, bak); } catch { /* 写不了 bak 不致命 */ }   // ← sync catch 抓不住
+```
+
+`atomicCopyFile` 返回 Promise，reject 时同步 `try/catch` 完全捕获不到，经 Node 24 的
+`unhandledRejection` 升级成 `uncaughtException`。
+
+**改法**：改用同样是「临时文件 + rename」原子写、但全程同步的 `atomicWriteSync()`，
+顺手把 `atomicCopyFile` 从 `desktop.js` 的 import 里去掉：
+
+```js
+try { atomicWriteSync(bak, fs.readFileSync(fp)); } catch { /* 写不了 bak 不致命 */ }
+```
+
+> 来源：`evilevil/dsh-purge-021rc2` 的 #119。它把函数改成 `async` + 补 `await`，并同步改
+> `core.js` / `index.js` 的调用点；我们改的是**调用处**——把 async 换成同步等价物，
+> 函数签名不动，调用链零改动，波及面更小。产物字节一致。
+
+**验证**：对一个必定失败的路径调用两种写法：
+
+```
+旧写法：unhandledRejection 触发 → Error: ENOENT … （Node 24/Electron 里升级为 uncaughtException）
+新写法：同步抛出、被 try/catch 正常捕获：ENOENT
+正常路径：bak 与原文字节一致 = true
+```
 
 ---
 
@@ -228,7 +368,51 @@ capabilities 段，且没有 `{ {var}}` 残渣。
 
 ---
 
-## 复核这套修复的方法
+## 附录 B · 未变更项：Ctrl+Enter 行为
+
+**结论：有意保留，不作修改。**
+
+### 现状
+
+session-controller 处理 `request.mode` 的分支被本仓库的清洗补丁改写：
+
+| 补丁 | 位置 | 行为 |
+|---|---|---|
+| `#85 SESSION_PROMPT_ALWAYS_FOLLOWUP` | `lib/core.js` | 将 `if (mode === "steer") agent.steer(...) else agent.followup(...)` 整体替换为 `agent.followup(message)` |
+| `#86` | `lib/core.js` | 首个 `replace` 同样强制 `agent.followup(message)`；第三个 `replace` 保留 `steer()` 的 next-step 语义 |
+
+实测宿主日志中 `[dsh-purge-85]` 命中 1 次、`[dsh-purge-86]` 命中 2 次，即两个补丁均已生效。
+
+### 影响
+
+UI 发送一律开启新一轮，Ctrl+Enter **不打断**当前轮次，而是排为下一轮。
+
+### 保留理由
+
+该改写并非缺陷修复，而是**行为性竞态补丁**：其目的是抑制「第二轮消息立刻发送被拒」的现象（`#85` 的 `desc` 记为「消 steer→next-step 竞态（二轮立刻发被拒根因）」）。上游后续版本改回了 `agent.steer`；若本分支同步回退，会重新引入该竞态。
+
+### 如需回退
+
+改动点仅两处，均在 `lib/core.js`：
+
+1. `#85` 的 `replace`：恢复 `mode === "steer"` 分支。
+2. `#86` 的首个 `replace`：同上，不再强制 `followup`。
+
+回退后应重新运行 `lib/audit-apply.mjs` 确认命中状态，并在二轮连续发送场景下复测。
+
+---
+## 附录 C · 复核方法汇总
+
+先跑一遍随包自带的回归测试（锁死第 7–9 条，不需要联网、不需要宿主的 yaml）：
+
+```bash
+cd <DSH_HOME>/profiles/desktop/node_modules/dsh-purge
+node test/fixes.test.mjs          # 等价于 npm test
+```
+
+期望输出末行：`全部通过：22 passed, 0 failed`，退出码 0。
+
+其余检查：
 
 ```bash
 cd <DSH_HOME>/profiles/desktop/node_modules/dsh-purge
@@ -245,3 +429,48 @@ ELECTRON_RUN_AS_NODE=1 "<DSH>/DSH Desktop.exe" lib/audit-compose.mjs
 
 > 这三个脚本**没有打进发布包**（发布包的 `files` 字段不含它们的新增项时会被排除）。
 > 如果你要在自己的机器上复核，从开发机拷过去，或直接看它们的源码逻辑重写一遍。
+
+### 复核 FIX-07 … FIX-09（无需上述脚本）
+
+```js
+// ① 第 7 条：fd 类方法是否真的装上了
+import { hostFs } from "./lib/extract-asar.js";
+for (const m of ["closeSync", "fsyncSync", "readSync", "writeSync"])
+  console.log(m, typeof hostFs[m]);            // 全部应为 "function"
+```
+
+```js
+// ② 第 8 条：预设里两个工具是否已摘掉
+import fs from "node:fs";
+import YAML from "yaml";
+const doc = YAML.parse(fs.readFileSync("presets/redteam/agent.cordis.yml", "utf8"));
+const ids = [];
+(function walk(n) {
+  if (!Array.isArray(n)) return;
+  for (const x of n) {
+    if (x && typeof x === "object") {
+      if (x.id) ids.push([x.id, x.disabled === true]);
+      if (Array.isArray(x.config)) walk(x.config);
+    }
+  }
+})(doc);
+for (const want of ["tool-workflow", "tool-ralph", "workflow-ptc", "tool-subagent"])
+  console.log(want, ids.filter(([i]) => i === want).map(([, d]) => (d ? "disabled" : "ENABLED")));
+// 期望：tool-workflow/tool-ralph = disabled，workflow-ptc/tool-subagent = ENABLED
+```
+
+```js
+// ③ 第 9 条：跑完 backupAll 之后，磁盘上到底有没有 .bak
+import { backupAll } from "./lib/core.js";
+const r = await backupAll("<DSH>/resources/app/node_modules/@deepseek-ai");
+console.log("made:", r.made.length, "errors:", r.errors.length);
+// 期望 made > 0、errors 为 0；对应目录下出现 *.dshpurge.bak
+```
+
+```powershell
+# 判据汇总：宿主目录下应当出现备份文件
+Get-ChildItem "<DSH>\resources\app" -Recurse -Filter *.dshpurge.bak | Measure-Object
+```
+
+> 第 9 条的另一半判据是**不崩**：点"应用"之后宿主仍在，日志里没有
+> `fatal load failure`，也没有 `unhandledRejection` / `uncaughtException`。

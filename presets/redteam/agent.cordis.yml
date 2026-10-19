@@ -311,12 +311,21 @@
         # 0.2.1-rc.2 起宿主把 `toolFilter` / `persona` 从 @deepseek-ai/dsh-tool-subagent 的
         # Config 里删了（还写就 throw："toolFilter is no longer supported; configure persona
         # and tool plugins in an Agent Preset"），整个工具行挂不上 → 预设 broken → 派活全废。
-        # 那条错误里指的替代方案是给子会话选 Agent Preset，而 preset 本身表达不了"叶子"。
-        # 现在由两层硬约束兜底：
-        #   ① maxDepth: 1 —— 子会话再想派活时 dsh-subagent 的 resolveChildDepth 直接报
-        #      "subagent depth 2 exceeds maxDepth 1"，派不出去；
-        #   ② 子会话工具目录里本来就没有 workflow / ralph 的引擎（本预设没给子层装）。
         # 不要再把 toolFilter 写回来——它是让整行 throw 的键，不是无害的冗余配置。
+        #
+        # 但 toolFilter 原来还兼职"把 workflow / ralph 从子代理摘掉"，这层约束不能一起丢，
+        # 必须另外补回来（取自 evilevil/dsh-purge-021rc2 的对应修法）：
+        #   ① maxDepth: 1 —— 子会话再调 tool-subagent 时 resolveChildDepth 直接报
+        #      "subagent depth 2 exceeds maxDepth 1"，这条路径确实堵住了；
+        #   ② 可 workflow / ralph 是**另一条**路径：dsh-workflow-ptc 的 childRequest()
+        #      组 spawn 请求时只带 prompt/provider/model/schema，**不带 maxDepth**
+        #      （该文件里 maxDepth 出现 0 次），于是落到 dsh-tool-subagent schema 的
+        #      `.default(10)`。子代理只要能调到这两个工具，就能绕过 maxDepth: 1 递归
+        #      拉起孙代理，叶子边界形同虚设。
+        # 所以下面 tool-workflow / tool-ralph 必须 disabled: true —— 子会话默认继承父预设
+        # 的工具表（agentPreset 省略即 inherit the parent agent's current preset），
+        # 只有在预设里摘掉，才是真的从子代理手上摘掉。
+        # 红队五个执行角色走 tool-subagent(spawn)，不依赖 workflow / ralph。
         maxDepth: 1
 
     # Fork omits model selection so provider/model stay equal to the parent and
@@ -365,11 +374,18 @@
       config:
         provider: spawn
 
+    # workflow / ralph 的引擎（workflow-ptc）仍然挂着，但**工具**不给：
+    # 子会话默认继承父预设的工具表，这两行一旦开启，子代理就能用它们绕过
+    # tool-subagent 的 maxDepth: 1 递归拉起孙代理（childRequest 不带 maxDepth，
+    # 见上面 tool-subagent 那段注释）。原预设靠 toolFilter.deny 摘掉，该机制
+    # 在 0.2.1 已删除，所以改为在这里 disabled。红队角色不需要它们。
     - id: tool-workflow
       name: '@deepseek-ai/dsh-tool-workflow'
+      disabled: true
 
     - id: tool-ralph
       name: '@deepseek-ai/dsh-tool-ralph'
+      disabled: true
       config:
         subagentProvider: spawn
         maxRounds: 64

@@ -20,20 +20,78 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const YAML = await importYaml();
 
+/**
+ * 找 yaml 解析器。**不假定 DSH 装在哪、也不假定 home 在哪**。
+ *
+ * 顺序（每一步都是通用推导，没有写死的绝对路径）：
+ *   ① 从本脚本所在目录**逐级向上**找 node_modules/yaml —— 脚本装在
+ *      `<profile>/node_modules/dsh-purge/` 里，而 yaml 是 profile 自己的顶层依赖
+ *      （pnpm hoisted 布局），所以这一步在**任何安装方式**下都成立。
+ *   ② 顺手在向上途中收集宿主特征目录（`resources/app/node_modules`、
+ *      `resources/app.asar.unpacked/node_modules`、`contents/resources/app/node_modules`）
+ *      —— 桌面端把 yaml 放在这里。
+ *   ③ $DSH_HOME 下各个 profile 的 node_modules/yaml（脚本被拷到别处跑时兜底）
+ *   ④ 全局 `import("yaml")` —— 用户自己 npm i -g yaml 或 DSH 安装目录有解析路径时。
+ */
 async function importYaml() {
-  const candidates = [
-    "D:/DSH Desktop/resources/app/node_modules/yaml/dist/index.js",
-    path.join(process.env.ProgramFiles || "C:/Program Files", "DSH Desktop/resources/app/node_modules/yaml/dist/index.js"),
+  const candidates = [];
+  const seen = new Set();
+  const push = (p) => {
+    if (!p) return;
+    const key = String(p).toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push(p);
+  };
+
+  const selfDir = (() => {
+    try { return path.dirname(fileURLToPath(import.meta.url)); }
+    catch { return process.cwd(); }
+  })();
+
+  // ① + ② 从脚本自身位置逐级向上
+  const HOST_MARKS = [
+    "resources/app/node_modules",
+    "resources/app.asar.unpacked/node_modules",
+    "contents/resources/app/node_modules",
   ];
+  let dir = selfDir;
+  for (let i = 0; i < 8; i += 1) {
+    push(path.join(dir, "node_modules", "yaml", "dist", "index.js"));
+    for (const mark of HOST_MARKS) push(path.join(dir, mark, "yaml", "dist", "index.js"));
+    const up = path.dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+
+  // ③ $DSH_HOME 下的各个 profile
+  for (const root of [process.env.DSH_HOME, path.join(os.homedir(), ".dsh")]) {
+    if (!root) continue;
+    const profiles = path.join(root, "profiles");
+    try {
+      for (const name of fs.readdirSync(profiles))
+        push(path.join(profiles, name, "node_modules", "yaml", "dist", "index.js"));
+    } catch { /* 没有 profiles 目录就跳过 */ }
+  }
+
   for (const file of candidates) {
     try { return (await import(url(file))).default; } catch { /* 下一个 */ }
   }
+  // ④ 让它按 Node 自己的解析规则找（含全局安装、NODE_PATH）
   try { return (await import("yaml")).default; } catch { /* 下面抛 */ }
-  console.error("✗ 找不到 yaml 解析器。请用 DSH 自带的 node 运行本脚本：");
-  console.error('  ELECTRON_RUN_AS_NODE=1 "D:/DSH Desktop/DSH Desktop.exe" dsh-purge-repair.mjs --fix');
+
+  console.error("✗ 找不到 yaml 解析器。");
+  console.error("  本脚本需要 `yaml`。三条路任选：");
+  console.error("  1) 用它自己的宿主跑（推荐，DSH 一定带着 yaml）：");
+  console.error('     ELECTRON_RUN_AS_NODE=1 "<DSH 安装目录>/DSH Desktop.exe" "<本脚本的完整路径>" --fix');
+  console.error("     （DSH 装在哪：Get-ChildItem \"$env:LOCALAPPDATA\\Programs\",\"$env:ProgramFiles\" -Filter \"DSH Desktop.exe\" -Recurse -Depth 3）");
+  console.error("  2) 从装好的插件目录里跑（脚本会向上找到 profile 自己的 node_modules/yaml）：");
+  console.error('     node "<DSH_HOME>/profiles/<profile>/node_modules/dsh-purge/dsh-purge-repair.mjs" --fix');
+  console.error("  3) 先补一个解析器再用真 node 跑：npm i -g yaml");
   process.exit(2);
 }
 

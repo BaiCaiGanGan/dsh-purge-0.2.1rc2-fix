@@ -4,6 +4,7 @@
 > English below: [One-page install](#one-page-install-english)
 
 **实测环境**：DSH Desktop 2.0.18 / dsh 0.2.1-rc.2 · 2026-10-19 全程跑通
+**插件版本**：`1.1.71-dsh0.2.1rc2-fix.2` · **文档索引**：[INSTALL.md](INSTALL.md) · [FIXES.md](FIXES.md) · [FORK-NOTES.md](FORK-NOTES.md) · [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
@@ -19,18 +20,27 @@
 
 ## 准备
 
+> **先把 `<DSH 安装目录>` 换成你自己的。** 下面两个变量和那个 `.bat` 里一共有 **3 处** 要替换。
+> 用这一条查（本地程序目录 → Program Files → 常见盘符）：
+>
+> ```powershell
+> Get-ChildItem "$env:LOCALAPPDATA\Programs","$env:ProgramFiles","D:\","C:\" `
+>   -Filter "DSH Desktop.exe" -Recurse -ErrorAction SilentlyContinue -Depth 3 |
+>   Select -First 3 FullName
+> ```
+
 ```powershell
-$DSH_BIN = "D:\DSH Desktop\DSH Desktop.exe"
-$DCLI    = "D:\DSH Desktop\resources\app\lib\desktop-cli.js"
+$DSH_BIN = "<DSH 安装目录>\DSH Desktop.exe"
+$DCLI    = "<DSH 安装目录>\resources\app\lib\desktop-cli.js"
 ```
 
-建 `dsh-plugin.bat`（后面所有 CLI 都走它）：
+建 `dsh-plugin.bat`（后面所有 CLI 都走它，**两处路径同样要换**）：
 
 ```bat
 @echo off
 REM Usage: dsh-plugin.bat plugin --profile desktop <pnpm-args...>
 set ELECTRON_RUN_AS_NODE=1
-"D:\DSH Desktop\DSH Desktop.exe" "D:\DSH Desktop\resources\app\lib\desktop-cli.js" %*
+"<DSH 安装目录>\DSH Desktop.exe" "<DSH 安装目录>\resources\app\lib\desktop-cli.js" %*
 ```
 
 ---
@@ -116,6 +126,15 @@ $log = "$env:APPDATA\DSH Desktop\logs\host\dsh-$((Get-Date).ToString('yyyy-MM-dd
 
 ## 7 · 验证
 
+**离线回归测试**
+
+```bash
+cd <DSH_HOME>/profiles/desktop/node_modules/dsh-purge
+node test/fixes.test.mjs
+```
+
+期望末行 `全部通过：22 passed, 0 failed`。不需要网络。
+
 **配置块唯一**
 
 ```bat
@@ -190,16 +209,25 @@ foreach ($pat in 'toolFilter is no longer supported',
 
 ## Setup
 
+> **Replace `<DSH install dir>` with your own path first** — 3 places below (2 variables + the `.bat`).
+> Find it with:
+>
+> ```powershell
+> Get-ChildItem "$env:LOCALAPPDATA\Programs","$env:ProgramFiles","D:\","C:\" `
+>   -Filter "DSH Desktop.exe" -Recurse -ErrorAction SilentlyContinue -Depth 3 |
+>   Select -First 3 FullName
+> ```
+
 ```powershell
-$DSH_BIN = "D:\DSH Desktop\DSH Desktop.exe"
-$DCLI    = "D:\DSH Desktop\resources\app\lib\desktop-cli.js"
+$DSH_BIN = "<DSH install dir>\DSH Desktop.exe"
+$DCLI    = "<DSH install dir>\resources\app\lib\desktop-cli.js"
 ```
 
 ```bat
 @echo off
 REM Usage: dsh-plugin.bat plugin --profile desktop <pnpm-args...>
 set ELECTRON_RUN_AS_NODE=1
-"D:\DSH Desktop\DSH Desktop.exe" "D:\DSH Desktop\resources\app\lib\desktop-cli.js" %*
+"<DSH 安装目录>\DSH Desktop.exe" "<DSH 安装目录>\resources\app\lib\desktop-cli.js" %*
 ```
 
 ## 1 · Back up
@@ -282,6 +310,15 @@ $log = "$env:APPDATA\DSH Desktop\logs\host\dsh-$((Get-Date).ToString('yyyy-MM-dd
 **Fully quit DSH and start it again.** `lib/**` and `cordis.patch.yml` are read from disk only at startup.
 
 ## 7 · Verify
+
+**Offline regression test**
+
+```bash
+cd <DSH_HOME>/profiles/desktop/node_modules/dsh-purge
+node test/fixes.test.mjs
+```
+
+Expected last line `全部通过：22 passed, 0 failed`. No network needed.
 
 **One config block only**
 

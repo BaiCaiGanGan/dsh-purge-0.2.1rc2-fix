@@ -4,13 +4,22 @@
 
 英文版见 [INSTALL.en.md](INSTALL.en.md)。
 
+| 项 | 值 |
+|---|---|
+| 适用宿主 | DSH `0.2.1-rc.2`（DSH Desktop 与 dsh CLI） |
+| 插件版本 | `1.1.71-dsh0.2.1rc2-fix.2` |
+| 前置条件 | Node.js ≥18（Windows 无闪窗需 ≥22）；可访问 GitHub，或已下载 Release 的 tarball |
+| 预计耗时 | 首次安装约 2 分钟，另需一次 DSH 完整重启 |
+| 相关文档 | [QUICKSTART.md](QUICKSTART.md) · [FIXES.md](FIXES.md) · [FORK-NOTES.md](FORK-NOTES.md) · [CHANGELOG.md](CHANGELOG.md) |
+
+
 > **本文件依据第二台机器的实机复现流程修订**（2026-10-19，DSH Desktop 2.0.18 / dsh 0.2.1-rc.2，全程跑通）。
 > 三条修正见下方 [⚠️ 三条会卡住你的坑](#-三条会卡住你的坑) —— 尤其第 1 条：**桌面端的 `desktop` profile 不能用普通 CLI 管理**。
 
 ## 这个包是什么
 
 - 基于上游 [dsh-purge](https://github.com/YuJunZhiXue/dsh-purge) `1.1.71`（commit `6c1d638`，MIT）
-- 叠加 6 处针对 **DSH Desktop 0.2.1-rc.2** 的适配修复 —— 见 [FORK-NOTES.md](FORK-NOTES.md) 与 [FIXES.md](FIXES.md)
+- 叠加 9 处针对 **DSH Desktop 0.2.1-rc.2** 的适配修复 —— 见 [FORK-NOTES.md](FORK-NOTES.md) 与 [FIXES.md](FIXES.md)
 - **不要**直接 `pnpm add dsh-purge`，那是上游未修复版
 
 ## 第 0 步 · 确认版本
@@ -73,7 +82,7 @@ function rejectElectronProfile(program, profile) {
 ## 第 1 步 · 找路径、确认 profile 名
 
 ```powershell
-# DSH 装在哪（不在 D:\DSH Desktop 时才需要）
+# DSH 装在哪（下面所有 <DSH 安装目录> 都换成这里查到的路径）
 Get-ChildItem "$env:LOCALAPPDATA\Programs","$env:ProgramFiles","D:\" -Filter "DSH Desktop.exe" -Recurse -ErrorAction SilentlyContinue -Depth 3 | Select -First 3 FullName
 
 # profile 有哪些
@@ -83,8 +92,8 @@ Get-ChildItem "$env:USERPROFILE\.dsh\profiles" -Directory | Select Name
 然后设两个变量：
 
 ```powershell
-$DSH_BIN = "D:\DSH Desktop\DSH Desktop.exe"
-$DCLI    = "D:\DSH Desktop\resources\app\lib\desktop-cli.js"   # 唯一能管理 desktop profile 的入口
+$DSH_BIN = "<DSH 安装目录>\DSH Desktop.exe"
+$DCLI    = "<DSH 安装目录>\resources\app\lib\desktop-cli.js"   # 唯一能管理 desktop profile 的入口
 ```
 
 ## 第 2 步 · 放一个 helper（强烈建议）
@@ -96,7 +105,7 @@ $DCLI    = "D:\DSH Desktop\resources\app\lib\desktop-cli.js"   # 唯一能管理
 REM dsh plugin helper for the desktop (reserved) profile.
 REM Usage: dsh-plugin.bat plugin --profile desktop <pnpm-args...>
 set ELECTRON_RUN_AS_NODE=1
-"D:\DSH Desktop\DSH Desktop.exe" "D:\DSH Desktop\resources\app\lib\desktop-cli.js" %*
+"<DSH 安装目录>\DSH Desktop.exe" "<DSH 安装目录>\resources\app\lib\desktop-cli.js" %*
 ```
 
 `%*` 能正确转发带引号的 github spec，实测通过：
@@ -245,6 +254,15 @@ node "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-purge\dsh-purge-re
 
 ## 验证
 
+### 0 · 离线回归测试
+
+```bash
+cd <DSH_HOME>/profiles/desktop/node_modules/dsh-purge
+node test/fixes.test.mjs
+```
+
+期望末行 `全部通过：22 passed, 0 failed`，退出码 `0`。该项覆盖 FIX-07 至 FIX-09，不需要网络，也不需要宿主的 `yaml`。
+
 ### 1 · 配置块唯一
 
 ```bat
@@ -371,7 +389,7 @@ export function hostAdapter(kind = detectSurface()) {
 }
 ```
 
-实测判定：原版 CLI → `web`；DSH Desktop → `desktop`。所以**第 5 处修复（认同 `DSH Desktop.exe`）在原版上是无作用也不出错**的，其余五处照常生效。
+实测判定：原版 CLI → `web`；DSH Desktop → `desktop`。所以**FIX-05（认同 `DSH Desktop.exe`）在原版上是无作用也不出错**的，其余五处照常生效。
 
 **③ 重启方式不同。** 桌面端有 asar 拆换与「模块已加载」守卫；原版走 `web.js` 的进程重启（`restartArgv` + `spawnRestartHelper`）。**所以原版上第 8 步更要老实做**，别指望面板点一下就够。
 

@@ -4,6 +4,15 @@
 
 English version of [INSTALL.md](INSTALL.md).
 
+| Item | Value |
+|---|---|
+| Target host | DSH `0.2.1-rc.2` (both DSH Desktop and dsh CLI) |
+| Plugin version | `1.1.71-dsh0.2.1rc2-fix.2` |
+| Prerequisites | Node.js ≥18 (≥22 to avoid a console flash on Windows); GitHub reachable, or the Release tarball already downloaded |
+| Time required | About 2 minutes for the first install, plus one full DSH restart |
+| Related docs | [QUICKSTART.md](QUICKSTART.md) · [FIXES.en.md](FIXES.en.md) · [FORK-NOTES.md](FORK-NOTES.md) · [CHANGELOG.md](CHANGELOG.md) |
+
+
 > **Revised from a real end-to-end run on a second machine** (2026-10-19, DSH Desktop 2.0.18 / dsh 0.2.1-rc.2, all steps passed).
 > The three gotchas are in [⚠️ Three gotchas that will stop you](#-three-gotchas-that-will-stop-you) — especially #1:
 > **the desktop `desktop` profile cannot be managed by the ordinary CLI.**
@@ -11,7 +20,7 @@ English version of [INSTALL.md](INSTALL.md).
 ## What this package is
 
 - Based on upstream [dsh-purge](https://github.com/YuJunZhiXue/dsh-purge) `1.1.71` (commit `6c1d638`, MIT)
-- Plus 6 adapter fixes for **DSH Desktop 0.2.1-rc.2** — see [FORK-NOTES.md](FORK-NOTES.md) and [FIXES.en.md](FIXES.en.md)
+- Plus 9 adapter fixes for **DSH Desktop 0.2.1-rc.2** — see [FORK-NOTES.md](FORK-NOTES.md) and [FIXES.en.md](FIXES.en.md)
 - **Do not** run plain `pnpm add dsh-purge` — that installs the unfixed upstream build
 
 ## Step 0 · Check your version
@@ -74,7 +83,7 @@ Use **ASCII output labels** in the snippets (`clean` / `MISSING <- problem`).
 ## Step 1 · Locate paths, confirm the profile name
 
 ```powershell
-# Where DSH lives (only needed if it is not at D:\DSH Desktop)
+# Where DSH lives (replace every <DSH install dir> below with what this finds)
 Get-ChildItem "$env:LOCALAPPDATA\Programs","$env:ProgramFiles","D:\" -Filter "DSH Desktop.exe" -Recurse -ErrorAction SilentlyContinue -Depth 3 | Select -First 3 FullName
 
 # Which profiles exist
@@ -84,8 +93,8 @@ Get-ChildItem "$env:USERPROFILE\.dsh\profiles" -Directory | Select Name
 Then set two variables:
 
 ```powershell
-$DSH_BIN = "D:\DSH Desktop\DSH Desktop.exe"
-$DCLI    = "D:\DSH Desktop\resources\app\lib\desktop-cli.js"   # the only entry that can manage the desktop profile
+$DSH_BIN = "<DSH install dir>\DSH Desktop.exe"
+$DCLI    = "<DSH install dir>\resources\app\lib\desktop-cli.js"   # the only entry that can manage the desktop profile
 ```
 
 ## Step 2 · Drop in a helper (strongly recommended)
@@ -97,7 +106,7 @@ Every "run the CLI" step below uses it, sidestepping gotcha 2. Create `dsh-plugi
 REM dsh plugin helper for the desktop (reserved) profile.
 REM Usage: dsh-plugin.bat plugin --profile desktop <pnpm-args...>
 set ELECTRON_RUN_AS_NODE=1
-"D:\DSH Desktop\DSH Desktop.exe" "D:\DSH Desktop\resources\app\lib\desktop-cli.js" %*
+"<DSH install dir>\DSH Desktop.exe" "<DSH install dir>\resources\app\lib\desktop-cli.js" %*
 ```
 
 `%*` forwards quoted github specs correctly; verified:
@@ -246,6 +255,16 @@ Without `--fix` it is **check mode**: reports, changes nothing. Running check mo
 ---
 
 ## Verification
+
+### 0 · Offline regression test
+
+```bash
+cd <DSH_HOME>/profiles/desktop/node_modules/dsh-purge
+node test/fixes.test.mjs
+```
+
+Expected last line `全部通过：22 passed, 0 failed`, exit code `0`. This covers FIX-07 through FIX-09 and needs neither the network nor the host's `yaml`.
+
 
 ### 1 · The config block appears exactly once
 

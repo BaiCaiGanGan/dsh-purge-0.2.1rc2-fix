@@ -1,5 +1,7 @@
 # Install guide (DSH Desktop 0.2.1-rc.2)
 
+> **In a hurry? See the one-page version: [QUICKSTART.md](QUICKSTART.md)** (this file is the full reference, with rescue detail and plain-DSH differences).
+
 English version of [INSTALL.md](INSTALL.md).
 
 > **Revised from a real end-to-end run on a second machine** (2026-10-19, DSH Desktop 2.0.18 / dsh 0.2.1-rc.2, all steps passed).

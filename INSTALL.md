@@ -1,5 +1,7 @@
 # 安装说明（DSH Desktop 0.2.1-rc.2）
 
+> **想快点装完？看一页纸精简版：[QUICKSTART.md](QUICKSTART.md)**（本文件是完整参考手册，含救援细节与原版 DSH 差异）。
+
 英文版见 [INSTALL.en.md](INSTALL.en.md)。
 
 > **本文件依据第二台机器的实机复现流程修订**（2026-10-19，DSH Desktop 2.0.18 / dsh 0.2.1-rc.2，全程跑通）。

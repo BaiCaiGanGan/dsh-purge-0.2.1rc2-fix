@@ -3,6 +3,20 @@
 本文件记录本分支（`Potato1008ypy/dsh-purge-0.2.1rc2-fix`）的版本变更。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循上游 `1.1.71` 并附加适配后缀。
 
+## [未发布 · 仅本地] — 2026-10-21
+
+线上最新仍是 `.6`，本节改动只在本地工作副本：**未推送、未打标签、未发发行版**。两条问题均由用户复核发现，先复现再修。
+
+### 修正
+
+- **配置文件按 ANSI 解码**。两个配置函数都用 `Get-Content -Path $Path -Raw`，Windows PowerShell 5.1 对没有 BOM 的 UTF-8 文件按系统代码页解码：中文字段会被写坏，实测更严重——引号被一并吞掉，`ConvertFrom-Json` 直接报「应为 `:` 或 `}`」，安装卡在写配置这一步（退出码 6）。改为显式 `-Encoding UTF8` 读取。
+- **正则没有限定 JSON 路径**。原实现 `("bundles"\s*:\s*\[)` 只匹配文档里第一个同名键：若别处先出现 `"bundles"`，函数会误判「已登记」并返回 false，目标数组仍为空，最终校验报错而安装无法完成（用户给出的复现配置已实测命中偏移 13 的 `other.bundles`）。改为按 `dsh.profile.bundles` / `dsh.desktopDeselectedBundles` 的 JSON 路径解析后改写，落盘前逐项比对其它字段；顺带也不再需要文本手术，行尾风格（LF/CRLF）保持原样。
+- **包校验按 OEM 代码页解码**。`Test-PackageTarball` 用 PowerShell 原生捕获 `tar` 输出，UTF-8 会被按 OEM 解码（本机 936）；`name`/`version` 恰好是 ASCII 才没出错。改为 `ProcessStartInfo` + `StandardOutputEncoding=UTF8` 按字节读。
+
+### 自检
+
+- `-SelfTest` 扩到 7 组断言：路径定位（含影子 `bundles`）、中文无损（无 BOM）、无 BOM 写回、原有 BOM 保留、幂等、空数组、缺 `bundles` 时明确报错。
+
 ## [1.1.71-dsh0.2.1rc2-fix.6] — 2026-10-21
 
 `install.ps1` 的六个缺陷，全部先复现再修。

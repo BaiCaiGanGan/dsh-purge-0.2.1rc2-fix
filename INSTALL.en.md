@@ -94,6 +94,7 @@ Four more things happen, either just before installing or right after:
 | **Undo the disable flag** | If the plugin sits in `dsh.desktopDeselectedBundles`, it is removed there too; writing only `bundles` would leave it disabled after restart |
 | **Honours `DSH_HOME`** | explicit `-DshHome` > `DSH_HOME` env var > default `~\.dsh`; the child process inherits the same value |
 | **Fallback package cache** | packages fetched by `-FromRelease` or the git fallback go to `$DshHome\cache\plugins\`, **never %TEMP%** — that path is recorded in `dependencies`, and a temp cleanup would make reinstalls impossible |
+| **UTF-8 and path targeting** | config files are always read and written as explicit UTF-8 (5.1 otherwise decodes by the system ANSI code page and mangles BOM-less Chinese); only the `dsh.profile.bundles` and `dsh.desktopDeselectedBundles` arrays are touched, and every other field is compared before writing |
 
 ```powershell
 # fully quit DSH first; the script checks and refuses otherwise

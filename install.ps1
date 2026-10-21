@@ -108,88 +108,94 @@ function Die([string]$Text, [int]$Code = 1) {
     exit $Code
 }
 
-# ─────────────────────────────────────────── bundles 写入（文本级手术，保留原有格式）
-function Add-BundleEntry {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Name
-    )
-    $raw = Get-Content -Path $Path -Raw
-    $nl = if ($raw -match "`r`n") { "`r`n" } else { "`n" }
-
-    $null = $raw | ConvertFrom-Json        # 先确认原文件可解析
-
-    $m = [regex]::Match($raw, '("bundles"\s*:\s*\[)([\s\S]*?)(\])')
-    if (-not $m.Success) { throw "在 $Path 里找不到 dsh.profile.bundles 数组" }
-
-    $inner = $m.Groups[2].Value
-    $found = @([regex]::Matches($inner, '"((?:[^"\\]|\\.)*)"'))
-    $names = @($found | ForEach-Object { $_.Groups[1].Value })
-    if ($names -contains $Name) { return $false }      # 已登记，幂等退出
-
-    if ($names.Count -eq 0) {
-        $newInner = "$nl        `"$Name`"$nl      "
-    }
-    else {
-        $last = $found[$found.Count - 1]
-        $at = $last.Index + $last.Length
-        $newInner = $inner.Substring(0, $at) + ",$nl        `"$Name`"" + $inner.Substring($at)
-    }
-
-    $updated = $raw.Substring(0, $m.Index) + $m.Groups[1].Value + $newInner + $m.Groups[3].Value +
-               $raw.Substring($m.Index + $m.Length)
-
-    $check = $updated | ConvertFrom-Json              # 写入后必须仍可解析
-    if (-not ($check.dsh.profile.bundles -contains $Name)) { throw "写入 bundles 后校验失败" }
-
-    # PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 BOM，宿主 JSON.parse 会直接失败。
-    # 按原文件是否带 BOM 精确写回。
-    $bytes = [System.IO.File]::ReadAllBytes($Path)
-    $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
-    [System.IO.File]::WriteAllText($Path, $updated, (New-Object System.Text.UTF8Encoding($hasBom)))
-    return $true
+# ─────────────────────────────────────────── profile 配置读写（按 JSON 路径改写）
+# 1) 5.1 的 Get-Content 默认按系统 ANSI 解码，无 BOM 的 UTF-8 中文会被读坏，
+#    实测会让 ConvertFrom-Json 直接失败 —— 读写都必须显式 UTF-8。
+# 2) 不按文本正则找 "bundles"：文档里别处也可能有同名键，正则只会命中第一个。
+function Read-JsonText([string]$Path) {
+    return Get-Content -LiteralPath $Path -Raw -Encoding UTF8
 }
 
-# ─────────────────────────────────────────── 从 desktopDeselectedBundles 里摘掉（启用插件）
-function Remove-DeselectedEntry {
+function Get-FileHasBom([string]$Path) {
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    return ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+}
+
+function Write-JsonText([string]$Path, [string]$Text) {
+    # 按原文件是否带 BOM 精确写回：5.1 的 Set-Content -Encoding UTF8 会写 BOM，宿主 JSON.parse 会失败
+    [System.IO.File]::WriteAllText($Path, $Text, (New-Object System.Text.UTF8Encoding((Get-FileHasBom $Path))))
+}
+
+function Get-CompareShape($Object) {
+    # 仅用于比对：把两个目标数组抹平后序列化，用来证明其它字段没被动过
+    $copy = ($Object | ConvertTo-Json -Depth 100) | ConvertFrom-Json
+    if ($copy.PSObject.Properties["dsh"]) {
+        if ($copy.dsh.PSObject.Properties["profile"] -and $copy.dsh.profile.PSObject.Properties["bundles"]) {
+            $copy.dsh.profile.bundles = @()
+        }
+        if ($copy.dsh.PSObject.Properties["desktopDeselectedBundles"]) {
+            $copy.dsh.desktopDeselectedBundles = @()
+        }
+    }
+    return ($copy | ConvertTo-Json -Depth 100)
+}
+
+function Update-ProfileConfig {
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Name
+        [Parameter(Mandatory)][string]$Name,
+        [switch]$AddBundle,
+        [switch]$UndoDeselect
     )
-    $raw = Get-Content -Path $Path -Raw
-    $nl = if ($raw -match "`r`n") { "`r`n" } else { "`n" }
-    $null = $raw | ConvertFrom-Json
+    $raw = Read-JsonText $Path
+    $obj = $raw | ConvertFrom-Json
+    $before = $raw | ConvertFrom-Json          # 独立副本，事后比对用
 
-    $m = [regex]::Match($raw, '("desktopDeselectedBundles"\s*:\s*\[)([\s\S]*?)(\])')
-    if (-not $m.Success) { return $false }            # 没有这个键，等于没被禁用
-
-    $inner = $m.Groups[2].Value
-    $found = @([regex]::Matches($inner, '"((?:[^"\\]|\\.)*)"'))
-    $names = @($found | ForEach-Object { $_.Groups[1].Value })
-    if ($names -notcontains $Name) { return $false }  # 本来就不在禁用列表里
-
-    # 逐个删掉元素及其后的逗号，保留其余格式
-    $kept = @($found | Where-Object { $_.Groups[1].Value -ne $Name })
-    if ($kept.Count -eq 0) {
-        $newInner = $nl + "    "                      # 变成空数组
+    if (-not ($obj.PSObject.Properties["dsh"] -and $obj.dsh.PSObject.Properties["profile"])) {
+        throw "在 $Path 里找不到 dsh.profile"
     }
-    else {
-        $firstAt = $found[0].Index
-        $last = $found[$found.Count - 1]
-        $tailAt = $last.Index + $last.Length
-        $newInner = $nl + "      " + (($kept | ForEach-Object { $_.Value }) -join ("," + $nl + "      ")) + $nl + "    "
+    $prof = $obj.dsh.profile
+    if (-not $prof.PSObject.Properties["bundles"]) { throw "在 $Path 里找不到 dsh.profile.bundles 数组" }
+
+    $bundleAdded = $false
+    $removedDeselect = $false
+
+    if ($AddBundle) {
+        $bundles = @($prof.bundles)
+        if ($bundles -notcontains $Name) {
+            $prof.bundles = @($bundles + $Name)
+            $bundleAdded = $true
+        }
+    }
+    if ($UndoDeselect -and $obj.dsh.PSObject.Properties["desktopDeselectedBundles"]) {
+        $d = @($obj.dsh.desktopDeselectedBundles)
+        if ($d -contains $Name) {
+            $obj.dsh.desktopDeselectedBundles = @($d | Where-Object { $_ -ne $Name })
+            $removedDeselect = $true
+        }
     }
 
-    $updated = $raw.Substring(0, $m.Index) + $m.Groups[1].Value + $newInner + $m.Groups[3].Value +
-               $raw.Substring($m.Index + $m.Length)
+    if (-not ($bundleAdded -or $removedDeselect)) {
+        return [pscustomobject]@{ BundleAdded = $false; DeselectedRemoved = $false; Changed = $false }
+    }
 
-    $check = $updated | ConvertFrom-Json
-    if (@($check.dsh.desktopDeselectedBundles) -contains $Name) { throw "从 desktopDeselectedBundles 移除 $Name 后校验失败" }
+    # 只允许这两个数组变化，其它字段必须逐一相同，否则不写
+    if ((Get-CompareShape $before) -ne (Get-CompareShape $obj)) {
+        throw "改写前后其它字段不一致，已放弃写入"
+    }
 
-    $bytes = [System.IO.File]::ReadAllBytes($Path)
-    $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
-    [System.IO.File]::WriteAllText($Path, $updated, (New-Object System.Text.UTF8Encoding($hasBom)))
-    return $true
+    $out = ($obj | ConvertTo-Json -Depth 100)
+    # ConvertTo-Json 在 5.1 下用 CRLF；原文件是 LF 的就换回去，避免无谓的整文件 diff
+    if ($raw -notmatch "`r`n") { $out = $out -replace "`r`n", "`n" }
+    if (-not $out.EndsWith("`n")) { $out += $(if ($raw -match "`r`n") { "`r`n" } else { "`n" }) }
+    Write-JsonText $Path $out
+
+    # 落盘后重新解析，确认目标状态达成
+    $check = (Read-JsonText $Path) | ConvertFrom-Json
+    if ($AddBundle -and -not (@($check.dsh.profile.bundles) -contains $Name)) { throw "写入后 bundles 校验失败" }
+    if ($UndoDeselect -and (@($check.dsh.desktopDeselectedBundles) -contains $Name)) { throw "写入后 desktopDeselectedBundles 校验失败" }
+
+    return [pscustomobject]@{ BundleAdded = $bundleAdded; DeselectedRemoved = $removedDeselect; Changed = $true }
 }
 
 # ─────────────────────────────────────────── 安装目录探测
@@ -303,9 +309,22 @@ function Test-GitResolveFailure([string]$output) {
 }
 
 function Test-PackageTarball([string]$path, [string]$expectedVersion) {
-    $raw = & tar -xzOf $path "package/package.json" 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $raw) { return "包内没有 package/package.json" }
-    $text = (@($raw) -join "`n")
+    # 不用 PowerShell 原生捕获 tar 输出：那会把 UTF-8 按 OEM 代码页解码，含中文时值会被写坏、
+    # 极端情况下连 JSON 结构都断掉。这里按字节读、显式 UTF-8 解码。
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = "tar"
+    $psi.Arguments = "-xzOf `"$path`" package/package.json"
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $psi.StandardOutputEncoding = $utf8
+    $psi.StandardErrorEncoding = $utf8
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $text = $proc.StandardOutput.ReadToEnd()
+    $null = $proc.StandardError.ReadToEnd()
+    $proc.WaitForExit()
+    if ($proc.ExitCode -ne 0 -or -not $text) { return "包里没有 package/package.json" }
     try { $p = $text | ConvertFrom-Json } catch { return "package.json 解析失败" }
     if ($p.name -ne $PackageName) { return "包名不符：$($p.name)" }
     if ($expectedVersion -and $p.version -ne $expectedVersion) { return "版本不符：$($p.version)" }
@@ -350,8 +369,16 @@ function Get-ReleaseTarball {
 
 # ─────────────────────────────────────────── 自检
 if ($SelfTest) {
-    $tmp = Join-Path $env:TEMP ("bundle-selftest-" + [guid]::NewGuid().ToString("N") + ".json")
-    $sample = @'
+    $fails = @()
+    function Tmp-Json([string]$text) {
+        $p = Join-Path $env:TEMP ("bundle-selftest-" + [guid]::NewGuid().ToString("N") + ".json")
+        # 故意写成「无 BOM + UTF-8」，模拟真实用户配置
+        [System.IO.File]::WriteAllText($p, $text, (New-Object System.Text.UTF8Encoding($false)))
+        return $p
+    }
+
+    # 1) 基本写入 + 幂等 + 其它字段不动
+    $f1 = Tmp-Json @'
 {
   "name": "dsh-profile-desktop",
   "private": true,
@@ -360,81 +387,77 @@ if ($SelfTest) {
   },
   "dsh": {
     "profile": {
-      "bundles": [
-        "@deepseek-ai/dsh-base",
-        "dshmarket"
-      ]
+      "bundles": ["@deepseek-ai/dsh-base", "dshmarket"]
     },
-    "desktopDeselectedBundles": []
+    "desktopDeselectedBundles": ["dsh-purge"]
   }
 }
 '@
-    Set-Content -Path $tmp -Value $sample -NoNewline -Encoding UTF8
+    $r1 = Update-ProfileConfig -Path $f1 -Name "dsh-purge" -AddBundle -UndoDeselect
+    $p1 = Read-JsonText $f1 | ConvertFrom-Json
+    if (-not $r1.Changed) { $fails += "首次调用应有改动" }
+    if (-not $r1.BundleAdded) { $fails += "应写入 bundles" }
+    if (-not $r1.DeselectedRemoved) { $fails += "应摘除禁用项" }
+    if (@($p1.dsh.profile.bundles) -notcontains "dsh-purge") { $fails += "bundles 未包含目标" }
+    if (@($p1.dsh.profile.bundles)[0] -ne "@deepseek-ai/dsh-base") { $fails += "原有顺序被打乱" }
+    if ($p1.name -ne "dsh-profile-desktop") { $fails += "其它字段被破坏" }
+    if ($p1.dependencies.'dsh-purge' -ne "github:owner/repo#tag") { $fails += "dependencies 被破坏" }
+    if ((@($p1.dsh.desktopDeselectedBundles)).Count -ne 0) { $fails += "禁用项未清空" }
 
-    $changed = Add-BundleEntry -Path $tmp -Name "dsh-purge"
-    $parsed = Get-Content $tmp -Raw | ConvertFrom-Json
-    $cmd = [regex]::Match((Get-Content $tmp -Raw), '"bundles"\s*:\s*\[([\s\S]*?)\]').Groups[1].Value
+    $r1b = Update-ProfileConfig -Path $f1 -Name "dsh-purge" -AddBundle -UndoDeselect
+    if ($r1b.Changed) { $fails += "重复调用应无改动" }
 
-    $fails = @()
-    if (-not $changed) { $fails += "首次写入应返回 true" }
-    if (-not ($parsed.dsh.profile.bundles -contains "dsh-purge")) { $fails += "bundles 未包含目标" }
-    if ($parsed.dsh.profile.bundles[0] -ne "@deepseek-ai/dsh-base") { $fails += "原有顺序被打乱" }
-    if ($parsed.name -ne "dsh-profile-desktop") { $fails += "其它字段被破坏" }
-    if (-not $parsed.dsh.PSObject.Properties["desktopDeselectedBundles"]) { $fails += "desktopDeselectedBundles 丢失" }
-    if ($cmd -notmatch '^\s*@deepseek-ai/dsh-base,\s*dshmarket,\s*dsh-purge,?\s*$' -and
-        $cmd -notmatch '"dsh-purge"') { $fails += "文本插入位置异常：$cmd" }
+    # 2) 空数组分支
+    $f2 = Tmp-Json '{"dsh":{"profile":{"bundles":[]}}}'
+    $r2 = Update-ProfileConfig -Path $f2 -Name "dsh-purge" -AddBundle
+    $p2 = Read-JsonText $f2 | ConvertFrom-Json
+    if (-not (@($p2.dsh.profile.bundles) -contains "dsh-purge")) { $fails += "空数组分支未写入" }
+    if (@($p2.dsh.profile.bundles).Count -ne 1) { $fails += "空数组分支写入了多余元素" }
+    if ($p2.dsh.PSObject.Properties["desktopDeselectedBundles"]) { $fails += "不应凭空创建 desktopDeselectedBundles" }
 
-    $second = Add-BundleEntry -Path $tmp -Name "dsh-purge"
-    if ($second) { $fails += "重复调用应幂等返回 false" }
-    $count = ([regex]::Matches((Get-Content $tmp -Raw), '"dsh-purge"')).Count
-    if ($count -ne 2) { $fails += "出现次数应为 2（依赖 + bundle），实际 $count" }
+    # 3) 无 BOM + 中文字段必须原样保留（读取时不指定 UTF-8 会读坏、甚至解析失败）
+    $cn = '{"开头":"说明文档","备注":"中文不应被改写","dsh":{"profile":{"bundles":[]},"desktopDeselectedBundles":[]}}'
+    $f3 = Tmp-Json $cn
+    $r3 = Update-ProfileConfig -Path $f3 -Name "dsh-purge" -AddBundle -UndoDeselect
+    $p3 = Read-JsonText $f3 | ConvertFrom-Json
+    if ($p3.'开头' -ne "说明文档") { $fails += "中文字段被改坏：$($p3.'开头')" }
+    if ($p3.'备注' -ne "中文不应被改写") { $fails += "中文备注被改坏：$($p3.'备注')" }
+    if (@($p3.dsh.profile.bundles) -notcontains "dsh-purge") { $fails += "含中文时 bundles 未写入" }
 
-    # 空数组分支
-    $empty = Join-Path $env:TEMP ("bundle-selftest-empty-" + [guid]::NewGuid().ToString("N") + ".json")
-    Set-Content -Path $empty -Value '{"dsh":{"profile":{"bundles":[]}}}' -NoNewline -Encoding UTF8
-    $null = Add-BundleEntry -Path $empty -Name "dsh-purge"
-    $parsedEmpty = Get-Content $empty -Raw | ConvertFrom-Json
-    if (-not ($parsedEmpty.dsh.profile.bundles -contains "dsh-purge")) { $fails += "空数组分支未写入" }
+    # 4) 别处同名 bundles 不得被误判为目标
+    $shadow = '{"other":{"bundles":["dsh-purge"]},"dsh":{"profile":{"bundles":[]},"desktopDeselectedBundles":[]}}'
+    $f4 = Tmp-Json $shadow
+    $r4 = Update-ProfileConfig -Path $f4 -Name "dsh-purge" -AddBundle -UndoDeselect
+    $p4 = Read-JsonText $f4 | ConvertFrom-Json
+    if (-not $r4.BundleAdded) { $fails += "影子 bundles 导致误判为已登记" }
+    if (@($p4.dsh.profile.bundles) -notcontains "dsh-purge") { $fails += "目标数组未写入" }
+    if (@($p4.other.bundles).Count -ne 1) { $fails += "误改了 other.bundles" }
 
-    Remove-Item $tmp, $empty -Force -ErrorAction SilentlyContinue
+    # 5) 写回的 JSON 不能带 BOM（宿主 JSON.parse 会失败）
+    $bb = [System.IO.File]::ReadAllBytes($f1)
+    if ($bb.Length -ge 3 -and $bb[0] -eq 0xEF -and $bb[1] -eq 0xBB -and $bb[2] -eq 0xBF) { $fails += "写入后带上了 BOM" }
+    $t1 = [System.IO.File]::ReadAllText($f1)
+    if ($t1.Length -gt 0 -and [int]$t1[0] -eq 0xFEFF) { $fails += "首字符是 U+FEFF" }
+
+    # 6) 原本带 BOM 的文件应保持带 BOM（不改变宿主既有约定）
+    $f5 = Join-Path $env:TEMP ("bundle-selftest-keepbom-" + [guid]::NewGuid().ToString("N") + ".json")
+    [System.IO.File]::WriteAllText($f5, '{"dsh":{"profile":{"bundles":[]}}}', (New-Object System.Text.UTF8Encoding($true)))
+    $null = Update-ProfileConfig -Path $f5 -Name "dsh-purge" -AddBundle
+    $b5 = [System.IO.File]::ReadAllBytes($f5)
+    if (-not ($b5.Length -ge 3 -and $b5[0] -eq 0xEF -and $b5[1] -eq 0xBB -and $b5[2] -eq 0xBF)) { $fails += "原有 BOM 被丢弃" }
+
+    # 7) 缺 dsh.profile.bundles 时应明确报错，而不是静默成功
+    $f6 = Tmp-Json '{"dsh":{"profile":{}}}'
+    $threw = $false
+    try { $null = Update-ProfileConfig -Path $f6 -Name "dsh-purge" -AddBundle } catch { $threw = $true }
+    if (-not $threw) { $fails += "缺少 bundles 数组时应抛错" }
+
+    Remove-Item $f1, $f2, $f3, $f4, $f5, $f6 -Force -ErrorAction SilentlyContinue
     if ($fails.Count -gt 0) {
         $fails | ForEach-Object { Write-Host "  ✗ $_" -ForegroundColor Red }
         exit 1
     }
-    Ok "自检通过：写入、幂等、空数组、格式保留"
-
-    # ── 追加：BOM 与禁用项
-    $fails2 = @()
-
-    # 1) 写回的 JSON 不能带 BOM（宿主 JSON.parse 会失败）
-    $bomFile = Join-Path $env:TEMP ("bundle-selftest-bom-" + [guid]::NewGuid().ToString("N") + ".json")
-    $null = New-Item -ItemType File -Path $bomFile -Force
-    [System.IO.File]::WriteAllText($bomFile, '{"dsh":{"profile":{"bundles":[]},"desktopDeselectedBundles":["dsh-purge"]}}', (New-Object System.Text.UTF8Encoding($false)))
-    $null = Add-BundleEntry -Path $bomFile -Name "dsh-purge"
-    $bb = [System.IO.File]::ReadAllBytes($bomFile)
-    if ($bb.Length -ge 3 -and $bb[0] -eq 0xEF -and $bb[1] -eq 0xBB -and $bb[2] -eq 0xBF) { $fails2 += "写入后带上了 BOM" }
-    $txt = [System.IO.File]::ReadAllText($bomFile)
-    if ($txt.Length -gt 0 -and [int]$txt[0] -eq 0xFEFF) { $fails2 += "字符串开头是 U+FEFF" }
-
-    # 2) desktopDeselectedBundles 里的目标必须被摘掉
-    $removed = Remove-DeselectedEntry -Path $bomFile -Name "dsh-purge"
-    $p2 = [System.IO.File]::ReadAllText($bomFile) | ConvertFrom-Json
-    if (-not $removed) { $fails2 += "禁用项应被移除，实际返回 false" }
-    if (@($p2.dsh.desktopDeselectedBundles) -contains "dsh-purge") { $fails2 += "禁用项仍在列表里" }
-    if (-not ($p2.dsh.profile.bundles -contains "dsh-purge")) { $fails2 += "摘除禁用项时破坏了 bundles" }
-    if (Remove-DeselectedEntry -Path $bomFile -Name "dsh-purge") { $fails2 += "重复摘除应幂等返回 false" }
-
-    # 3) 没有该键时不应报错
-    $noKey = Join-Path $env:TEMP ("bundle-selftest-nokey-" + [guid]::NewGuid().ToString("N") + ".json")
-    [System.IO.File]::WriteAllText($noKey, '{"dsh":{"profile":{"bundles":["dsh-purge"]}}}', (New-Object System.Text.UTF8Encoding($false)))
-    if (Remove-DeselectedEntry -Path $noKey -Name "dsh-purge") { $fails2 += "缺 desktopDeselectedBundles 时应返回 false" }
-
-    Remove-Item $bomFile, $noKey -Force -ErrorAction SilentlyContinue
-    if ($fails2.Count -gt 0) {
-        $fails2 | ForEach-Object { Write-Host "  ✗ $_" -ForegroundColor Red }
-        exit 1
-    }
-    Ok "自检通过：无 BOM 写回、禁用项摘除、幂等"
+    Ok "自检通过：路径定位、中文无损、无 BOM 写回、幂等、缺键报错"
     exit 0
 }
 
@@ -602,13 +625,12 @@ else {
     $bak = "$pkgPath.snapshot-" + (Get-Date -Format "yyyyMMdd-HHmmss")
     Copy-Item $pkgPath $bak -Force
     try {
-        $added = Add-BundleEntry -Path $pkgPath -Name $PackageName
-        if ($added) { Ok "已写入 dsh.profile.bundles" }
+        # 一次解析完成两件事：登记 bundles + 摘掉禁用项；只改这两个数组，其它字段比对不变才写
+        $res = Update-ProfileConfig -Path $pkgPath -Name $PackageName -AddBundle -UndoDeselect
+        if ($res.BundleAdded) { Ok "已写入 dsh.profile.bundles" }
         else { Ok "dsh.profile.bundles 里已有 $PackageName，未改动" }
-
-        # 只登记 bundles 不够：它同时出现在 desktopDeselectedBundles 里时仍是禁用状态
-        $unDeselected = Remove-DeselectedEntry -Path $pkgPath -Name $PackageName
-        if ($unDeselected) { Ok "已从 desktopDeselectedBundles 移除 $PackageName（解除禁用）" }
+        if ($res.DeselectedRemoved) { Ok "已从 desktopDeselectedBundles 移除 $PackageName（解除禁用）" }
+        if (-not $res.Changed) { Ok "配置无变化（已登记、且不在禁用列表）" }
     }
     catch {
         Copy-Item $bak $pkgPath -Force
@@ -622,7 +644,7 @@ else {
 # 8) 校验
 Say ""
 Say "校验"
-$pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
+$pkg = Read-JsonText $pkgPath | ConvertFrom-Json
 if ($pkg.dependencies.PSObject.Properties[$PackageName]) {
     Ok "dependencies：$($pkg.dependencies.$PackageName)"
 }
@@ -631,12 +653,15 @@ else {
     $script:ExitCode = 6
 }
 if (-not $NoBundle) {
-    if ($pkg.dsh.profile.bundles -contains $PackageName) { Ok "bundles：已登记" }
+    if (@($pkg.dsh.profile.bundles) -contains $PackageName) { Ok "bundles：已登记" }
     else { Warn "bundles：未登记"; $script:ExitCode = 6 }
+    if (@($pkg.dsh.desktopDeselectedBundles) -contains $PackageName) {
+        Warn "desktopDeselectedBundles 里仍有 $PackageName —— 重启后插件仍是禁用状态"
+    }
 }
 $modPkg = Join-Path $modPath "package.json"
 if (Test-Path $modPkg) {
-    $v = (Get-Content $modPkg -Raw | ConvertFrom-Json).version
+    $v = (Read-JsonText $modPkg | ConvertFrom-Json).version
     Ok "已落地：node_modules\$PackageName@$v"
 }
 else {

@@ -92,6 +92,7 @@ Copy-Item pnpm-lock.yaml "pnpm-lock.yaml.bak-$(Get-Date -Format yyyyMMdd-HHmmss)
 | **解除禁用** | 若 `dsh.desktopDeselectedBundles` 里有本插件，一并摘掉；只写 `bundles` 而留着禁用项，重启后仍是禁用状态 |
 | **认 `DSH_HOME`** | 显式 `-DshHome` > 环境变量 `DSH_HOME` > 默认 `~\.dsh`；子进程沿用同一个值 |
 | **兜底包缓存** | `-FromRelease` / git 兜底下载的包放在 `$DshHome\cache\plugins\`，**不放临时目录**——这个路径会被写进 `dependencies`，临时目录一清就装不回来 |
+| **UTF-8 与路径定位** | 配置文件一律显式按 UTF-8 读写（5.1 默认按系统 ANSI 解码，无 BOM 的中文会被读坏）；改写只动 `dsh.profile.bundles` 与 `dsh.desktopDeselectedBundles` 两个数组，其它字段逐项比对不变才落盘 |
 
 ```powershell
 # 先完全退出 DSH；脚本会检测，未退出则拒绝执行

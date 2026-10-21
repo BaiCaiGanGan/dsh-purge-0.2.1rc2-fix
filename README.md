@@ -73,38 +73,60 @@ Installation has three steps: **install → enable → patch the host**. The fir
 
 | Step | Where |
 |---|---|
-| 1 · Install | Plugins page → **Add plugin** |
-| 2 · Enable | Same page → **Enable**, then restart DSH |
+| 1 · Install | `install.ps1`, or Plugins page → **Add plugin** |
+| 2 · Enable | The one-click script writes `bundles` for you; otherwise same page → **Enable**, then restart DSH |
 | 3 · Patch | **dsh-purge → Clean → Apply** next to the session title |
 
-### Desktop (recommended)
+In recommended order — pick one of the four:
 
-1. Open the **Plugins page → Add plugin** and paste a Git URL, the Release archive URL, or an absolute local path.
-2. When it finishes, click **Enable** on the **same** page, then fully quit and restart DSH.
-3. Click **dsh-purge → Clean → Apply** next to the session title; on success DSH restarts itself once more.
+| Order | Route | Quit DSH first? | Writes `bundles` |
+|---|---|---|---|
+| 1 | One-click `install.ps1` | Yes | ✅ |
+| 2 | `pnpm add` | No | ❌ (enable once by hand) |
+| 3 | Desktop command-line helper | Yes | ✅ |
+| 4 | GUI "Plugins" page | No (but may hit `EPERM`) | ✅ |
 
-Before adding, the host performs a `git ls-remote` reachability check (5-second timeout by default) and reports unreachable networks explicitly.
+### 1 · One-click script (Windows, least work)
 
-### Desktop (command line)
-
-```bat
-:: dsh-plugin.bat wraps desktop-cli.js; see INSTALL.en.md
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+```powershell
+# fully quit DSH first
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-Calling `dsh plugin --profile desktop` directly is rejected (`profile "desktop" is managed exclusively by the Electron application`); `<DSH install dir>\resources\app\lib\desktop-cli.js` is the only gate that lets it through. That path writes **both** `dependencies` and `dsh.profile.bundles`.
+It detects the DSH install directory and run mode, installs the package, then writes `dsh.profile.bundles` — **it takes effect on restart with no enable click**, collapsing steps 1 and 2 above into one. The script refuses to run while DSH is up (that path hits `ERR_PNPM_EPERM`). Full switch list: [INSTALL.en.md](INSTALL.en.md) 2.0.
 
-### Installing with `pnpm add`
+### 2 · Installing with `pnpm add` (most direct)
 
 ```bash
-pnpm add https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.2.tar.gz
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
 `pnpm add` writes `dependencies` only — it does not register `dsh.profile.bundles`. Afterwards you must enable it on the **Plugins page**, then restart DSH.
 
+> **Do not install from the Release tarball URL.** The host passes `CI=true` to pnpm (frozen mode), under which `pnpm add <remote tarball URL>` records the dependency without an `integrity` field. The moment the bytes are actually needed (another machine, empty cache, `--frozen-lockfile`), pnpm refuses — and because that verification runs before any operation, it **freezes every install and uninstall in that profile** with `ERR_PNPM_MISSING_TARBALL_INTEGRITY`. GitHub sources and local `file:` archives do not trigger it. Recovery: [INSTALL.en.md](INSTALL.en.md) section 7.5.
+
+### 3 · Desktop command line (helper)
+
+```bat
+:: dsh-plugin.bat wraps desktop-cli.js; see INSTALL.en.md
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
+```
+
+Calling `dsh plugin --profile desktop` directly is rejected (`profile "desktop" is managed exclusively by the Electron application`); `<DSH install dir>\resources\app\lib\desktop-cli.js` is the only gate that lets it through. That path writes **both** `dependencies` and `dsh.profile.bundles`; quit DSH first.
+
+### 4 · Desktop "Plugins" page (GUI)
+
+1. Open the **Plugins page → Add plugin** and paste a Git URL or an absolute local path.
+2. When it finishes, click **Enable** on the **same** page, then fully quit and restart DSH.
+3. Click **dsh-purge → Clean → Apply** next to the session title; on success DSH restarts itself once more.
+
+> **Measured: on a profile that carries plugins with native modules (a web-ui set, for instance) this route keeps failing.** pnpm must rename native-module directories under `node_modules` and the running DSH has them mapped, so it reports `ERR_PNPM_EPERM`; a GUI install needs DSH running, which is the deadlock. Use routes 1–3 in such an environment.
+
+Before adding, the host performs a `git ls-remote` reachability check (5-second timeout by default) and reports unreachable networks explicitly.
+
 ### Do not enable it in dsh-market
 
-> dsh-market's enable only attempts a hot mount (`dshmarket/lib/routes.js:773`); on failure it leaves the plugin disabled and **never writes `dsh.profile.bundles`**. This plugin's patch carries `inject` and `config`, so the hot mount always fails — its "activates on restart" message never comes true. Enable it from the GUI **Plugins** page instead.
+> dsh-market's enable only attempts a hot mount (`dshmarket/lib/routes.js:773`); on failure it leaves the plugin disabled and **never writes `dsh.profile.bundles`**. This plugin's patch carries `inject` and `config`, so the hot mount always fails — its "activates on restart" message never comes true. Enable it via route 1 or 3 instead (they write `bundles`).
 
 For the full reference — entry-point capabilities, verification, migrating from an older version, uninstalling and troubleshooting — see **[INSTALL.en.md](INSTALL.en.md)**.
 
@@ -407,8 +429,7 @@ $cands | Select-Object -Unique | Where-Object { $_ -and (Test-Path (Join-Path $_
 >
 > ```sh
 > git clone --branch v1.1.71-dsh0.2.1rc2-fix https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix.git "$DSH_HOME/plugins/dsh-purge"
-> # or the tarball:
-> #   https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.tar.gz
+> # (no git? download the Release archive and extract it here — do not feed the tarball URL to pnpm, see INSTALL.en.md 7.5)
 > ```
 >
 > Everything else in those sections (paths, `package.json` edits, Apply steps) still applies.
@@ -429,8 +450,7 @@ Without git: download [master.tar.gz](https://github.com/YuJunZhiXue/dsh-purge/a
 >
 > ```sh
 > git clone --branch v1.1.71-dsh0.2.1rc2-fix https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix.git "$DSH_HOME/plugins/dsh-purge"
-> # or the tarball:
-> #   https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.tar.gz
+> # (no git? download the Release archive and extract it here — do not feed the tarball URL to pnpm, see INSTALL.en.md 7.5)
 > ```
 >
 > Everything else in that section (paths, `package.json` edits, Apply steps) still applies.

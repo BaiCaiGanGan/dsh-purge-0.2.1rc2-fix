@@ -6,7 +6,7 @@
 | 项 | 值 |
 |---|---|
 | 适用宿主 | DSH `0.2.1-rc.2`（DSH Desktop 与 dsh CLI） |
-| 插件版本 | `1.1.71-dsh0.2.1rc2-fix.2` |
+| 插件版本 | `1.1.71-dsh0.2.1rc2-fix.3` |
 | 前置条件 | Node.js ≥18（Windows 无闪窗需 ≥22）；可访问 GitHub，或已下载 Release 的 tarball |
 | 预计耗时 | 首次安装约 2 分钟，另需一次 DSH 完整重启 |
 | 相关文档 | [QUICKSTART.md](QUICKSTART.md) · [FIXES.md](FIXES.md) · [FORK-NOTES.md](FORK-NOTES.md) · [CHANGELOG.md](CHANGELOG.md) |
@@ -54,28 +54,64 @@ Copy-Item pnpm-lock.yaml "pnpm-lock.yaml.bak-$(Get-Date -Format yyyyMMdd-HHmmss)
 
 # 二 · 安装
 
-三条入口能力不同，先看清再选：
+按推荐顺序，四条装法任选一条：
+
+| 顺序 | 装法 | 装包 | 登记 `bundles` | 备注 |
+|---|---|---|---|---|
+| **1** | 2.0 `install.ps1` | ✅ | ✅ 自动 | 一条命令、自动探测；需先退出 DSH |
+| **2** | 2.1 `pnpm add` | ✅ | ❌ | 最直接；装完手动启用一次 |
+| **3** | 2.2 桌面端命令行 | ✅ | ✅ 自动 | 需放 helper；需先退出 DSH |
+| **4** | 2.3 GUI「插件」页 | ✅ | ✅ 自动 | 仅 profile 未加载原生模块时可用 |
+
+下面这些入口不要用于本插件：
 
 | 入口 | 装包 | 登记 `dsh.profile.bundles` | 启用本插件 |
 |---|---|---|---|
-| GUI「插件」页 | ✅ | ✅ 自动 | ✅ **推荐** |
-| `<app>\lib\desktop-cli.js` | ✅ | ✅ 自动 | ✅ |
 | `<app>\node_modules\@deepseek-ai\dsh\lib\bin.js` | ❌ 被拒（desktop） | — | — |
 | dsh-market（插件市场） | ✅ | ❌ | ❌ |
-| 在 `profiles\desktop` 里 `pnpm add` | ✅ | ❌ | ❌ |
 
 > **dsh-market 的「启动」对本插件无效。** 它只尝试热挂载（`dshmarket/lib/routes.js:773`），失败即保持
 > 禁用且不写 `dsh.profile.bundles`；本插件的 patch 含 `inject` 与 `config`，热挂载必然失败。
-> 装/卸可以用它，**启用请回 GUI「插件」页**。原因见附录 A.1。
+> 装/卸可以用它，**启用请走 2.0 或 2.2（它们会写 `bundles`）**，或手动登记。原因见附录 A.1。
 
-## 2.1 路径 A · GUI「插件」页（推荐）
+## 2.0 一键安装（Windows）
 
-1. 打开 **「插件」页 → 添加插件**。
-2. 粘贴 Git 地址、Release 压缩包地址或本地绝对路径。
-3. 安装完成后进入第 3 节「启用」。
+`install.ps1` 把整条链路做完：
 
-宿主在添加前会执行一次 `git ls-remote` 连通性检查，默认 5 秒超时；网络不可达时会明确报错。
-国内网络若卡在检查上，改用 2.2 的 tarball 地址，或在 **设置 → 插件 → 插件配置 → GitHub 加速** 填一个 HTTPS 前缀。
+```
+探测安装目录 → 判定桌面端 / 原版 CLI → 选出 profile → pnpm add → 写 dsh.profile.bundles
+```
+
+最后一步是关键：`dsh.profile.bundles` 一登记，插件重启后随 profile 自动加载，省掉手动到「插件」页点启用。
+
+```powershell
+# 先完全退出 DSH；脚本会检测，未退出则拒绝执行
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+| 开关 | 作用 |
+|---|---|
+| `-DryRun` | 只打印将执行的命令，不改任何文件 |
+| `-DshInstall "<目录>"` | 自动探测失败时手动指定 DSH 安装目录 |
+| `-Mode cli` / `-Mode desktop` | 跳过自动判定，强制某条入口 |
+| `-NoBundle` | 只装包、不写 `bundles`（等价裸 `pnpm add`，装完需手动启用） |
+| `-Force` | DSH 仍在运行时也继续——会撞 `EPERM`，仅供排障 |
+| `-SelfTest` | 对内置样例跑写入逻辑自检，不碰真实 profile |
+
+脚本自带的保护：拒绝远端 tarball 地址（见 7.5）、改动前备份 `package.json`、写入后重新解析校验、失败即回滚、顺手清理 `*_tmp_*` 残留。
+
+装完直接启动 DSH 即可。
+
+## 2.1 路径 A · `pnpm add`（最直接）
+
+```bash
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
+```
+
+`pnpm add` 只写 `dependencies`，**不登记** `dsh.profile.bundles`，所以装完必须到「插件」页手动启用一次（第 3 节）。
+
+> **不要用 Release 的 tarball 地址。** 宿主给 pnpm 带 `CI=true`，那条路径会写出缺 `integrity` 的锁文件条目，进而冻结整个 profile（成因与恢复见 7.5）。
+> 网络受限时先把压缩包下载到本地，再装本地文件——pnpm 会为本地压缩包写入完整校验值：`pnpm add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.3.tar.gz"`。
 
 ## 2.2 路径 B · 桌面端命令行（`desktop-cli.js`）
 
@@ -93,31 +129,50 @@ set ELECTRON_RUN_AS_NODE=1
 `%*` 会原样转发带引号的 spec。装包：
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
-GitHub 拉不动时改用 tarball（**稳定地址，不带版本号**，以后升级不用改文档）：
+> 上面是 `.bat` 里的写法。`::` 开头的行是**批处理注释**，粘进 PowerShell 会报「术语 '::' 不会被识别」。
+> 在 PowerShell 里调用必须带 `.\` 前缀（`.\dsh-plugin.bat …`）或写完整路径——PowerShell 不从当前目录执行裸文件名。
+
+GitHub 拉不动时，**不要改用 Release 的 tarball 地址**——宿主给 pnpm 带 `CI=true`，那条路径会写出缺 `integrity` 的锁文件条目，进而冻结整个 profile（成因与恢复见 7.5）。改用本地压缩包：
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.tar.gz"
+:: 先把 dsh-purge-dsh0.2.1rc2-fix.3.tar.gz 下载到本地，再装这个本地路径
+dsh-plugin.bat plugin --profile desktop add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.3.tar.gz"
 ```
+
+pnpm 会为本地压缩包写入完整校验值（`CI=true` 下实测同样如此）。若宿主拒绝 `file:` 这种 spec，改用 7.4 的离线目录方式。
 
 这条路径会同时写入 `dependencies` 与 `dsh.profile.bundles`，无需手改 `package.json`。
 
 > helper 不是安装的必需品，但后续验收、迁移、卸载会反复用到它。
 > 不放 helper 也可以，但每次都要按附录 A.2 的写法手动拼命令。
 
-## 2.3 路径 C · 原版 DSH（无桌面锁）
+## 2.3 路径 C · GUI「插件」页
+
+1. 打开 **「插件」页 → 添加插件**。
+2. 粘贴 Git 地址或本地绝对路径。
+3. 安装完成后进入第 3 节「启用」。
+
+宿主在添加前会执行一次 `git ls-remote` 连通性检查，默认 5 秒超时；网络不可达时会明确报错。
+国内网络若卡在检查上，改用 2.1 的本地压缩包方式，或在 **设置 → 插件 → 插件配置 → GitHub 加速** 填一个 HTTPS 前缀。
+
+> **限制（实测）**：profile 里一旦有被 DSH 加载的原生模块（如 `lightningcss-win32-x64-msvc`，随 web-ui 那类客户端 UI 插件进来），
+> 安装会报 `ERR_PNPM_EPERM … rename '…_tmp_…'`：pnpm 要重命名该目录，而运行中的 DSH 正映射着里面的 `.node` 文件。
+> GUI 安装要求 DSH 正在运行，构成死锁。这类环境改用 2.0 的脚本，或 2.1 / 2.2。
+
+## 2.4 路径 D · 原版 DSH（无桌面锁）
 
 原版 DSH 上普通 CLI 直接可用，profile 名通常是 `web`，按 1.2 的实际结果替换：
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
 其余差异见附录 B。
 
-## 2.4 替换旧版本时：先卸载
+## 2.5 替换旧版本时：先卸载
 
 全新安装跳过本节。替换安装时，下文第 6 节的卸载步骤**必须先做**，否则可能残留重复的 `- insert:` 块。
 
@@ -346,7 +401,31 @@ dsh-purge-dsh0.2.1rc2-fix.tar.gz   ← 解压后整个目录放入
 <DSH_HOME>\profiles\desktop\node_modules\dsh-purge\
 ```
 
-## 7.5 收尾提醒
+## 7.5 安装时报 `ERR_PNPM_MISSING_TARBALL_INTEGRITY`
+
+```
+[ERR_PNPM_MISSING_TARBALL_INTEGRITY] Cannot install package "dsh-purge@https://…tar.gz":
+its lockfile entry has no "integrity" field, so pnpm cannot verify the downloaded tarball.
+```
+
+**成因。** 宿主调用 pnpm 时带 `CI=true`（冻结模式）。在这个环境下执行 `pnpm add <远端 tarball 地址>`，pnpm 会把依赖写进锁文件，但 `resolution` 里只有 `tarball`、**没有 `integrity`**——冻结模式跳过了取包与校验那一步。等到真正需要取字节时（换机器、清空 store、`--frozen-lockfile`），pnpm 无法校验内容，于是拒绝。又因为这项校验先于任何 add/remove 执行，**整个 profile 的安装与卸载全部被拒**，连卸载它自己都做不到。
+
+GitHub 源（`github:…`）与本地 `file:` 压缩包都不会触发：前者 pnpm 认得，后者它手上有字节可算。
+
+**恢复。** 把出问题的那条从两个文件里摘掉，再用可靠方式重装。**不要删整个 `pnpm-lock.yaml`**——那会让其余插件全部重新解析版本。要摘的共三处：`importers` 下的依赖条目、`packages` 与 `snapshots` 下的同名键。
+
+```powershell
+cd "$env:USERPROFILE\.dsh\profiles\desktop"
+Copy-Item package.json  "package.json.bak-$(Get-Date -Format yyyyMMdd-HHmmss)"
+Copy-Item pnpm-lock.yaml "pnpm-lock.yaml.bak-$(Get-Date -Format yyyyMMdd-HHmmss)"
+Select-String -Path pnpm-lock.yaml -Pattern "dsh-purge" -Context 0,4   # 先看清是哪几处
+```
+
+摘干净后按 2.1（`pnpm add`）或 2.2（桌面端命令行）重装。判据：`pnpm install --frozen-lockfile` 不再报这个错。
+
+报错形态随 pnpm 版本不同：11.20 及更早一次只点名一条；11.21 起由供应链检查一次列出全部违规条目。
+
+## 7.6 收尾提醒
 
 - **数据不会丢**：profile 目录、会话与 `redteam` 的 SQLite 都在 `$DSH_HOME` 下，与插件版本无关。
 - **手改过的预设/提示词不会被覆盖**：宿主遵循「模板改了不动用户副本」，所以旧格式需用第 5 节的自愈工具单独处理。
@@ -406,7 +485,7 @@ function rejectElectronProfile(program, profile) {
 **① 没有桌面锁，普通 CLI 直接可用**（附录 A.1 不适用）：
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
 **② 适配器自动切到 web**。插件按 surface 选适配器：

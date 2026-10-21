@@ -4,7 +4,7 @@
 > English below: [One-page install](#one-page-install-english)
 
 **实测环境**：DSH Desktop 2.0.18 / dsh 0.2.1-rc.2 · 2026-10-19 全程跑通
-**插件版本**：`1.1.71-dsh0.2.1rc2-fix.2` · **文档索引**：[INSTALL.md](INSTALL.md) · [FIXES.md](FIXES.md) · [FORK-NOTES.md](FORK-NOTES.md) · [CHANGELOG.md](CHANGELOG.md)
+**插件版本**：`1.1.71-dsh0.2.1rc2-fix.3` · **文档索引**：[INSTALL.md](INSTALL.md) · [FIXES.md](FIXES.md) · [FORK-NOTES.md](FORK-NOTES.md) · [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
@@ -84,20 +84,35 @@ $p = Get-Content "$env:USERPROFILE\.dsh\profiles\desktop\package.json" -Raw | Co
 
 ## 3 · 装
 
-```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+最省事是一键脚本：自动探测安装目录、自动写 `bundles`，重启即生效。**先完全退出 DSH**。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-GitHub 拉不动就换稳定 tarball（不带版本号，以后升级不用改）：
+手动命令行（等价于脚本里的装包那一步，但不写 `bundles`，装完要手动启用）：
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.tar.gz"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
-> 实测 6.5 秒，`bundles` 自动写入。GUI 路线：**「插件」页 → 添加插件**。
+GitHub 拉不动就把压缩包下载到本地再装——**别用 tarball 地址**，宿主带 `CI=true`，那条路径会写出缺 `integrity` 的锁文件条目并冻结整个 profile（见 INSTALL.md 7.5）：
+
+```bat
+dsh-plugin.bat plugin --profile desktop add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.3.tar.gz"
+```
+
+> 实测 6.5 秒，`bundles` 自动写入。GUI 路线（受限，见 INSTALL.md 2.3）：「插件」页 → 添加插件。
+
+更简单的手动替代（不用 helper、不用关 DSH，但装完要到「插件」页启用一次）：
+
+```bash
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
+```
 
 > **别用 dsh-market 点「启动」。** 它只走热挂载（本插件含 `inject`/`config`，必然失败），
-> 且那条路径不写 `dsh.profile.bundles`——重启后依然是未启用。启用请用 **GUI「插件」页 → 启动**。
+> 且那条路径不写 `dsh.profile.bundles`——重启后依然是未启用。启用请用上面的一键脚本或 `.bat`（它们会写 `bundles`）；
+> 走 `pnpm add` 的话，到 **GUI「插件」页 → 启动** 补一次。
 > 判据就是第 4 步的 `bundle: has dsh-purge`。
 
 ## 4 · 确认 bundles
@@ -273,17 +288,31 @@ $p = Get-Content "$env:USERPROFILE\.dsh\profiles\desktop\package.json" -Raw | Co
 
 ## 3 · Install
 
-```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+Least work is the one-click script: it detects the install directory and writes `bundles`, so it takes effect on restart. **Fully quit DSH first.**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-If GitHub will not fetch, use the stable tarball (no version in it, so upgrades need no command change):
+Manual command line (the install step alone — no `bundles`, so enable by hand afterwards):
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.tar.gz"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
-> Measured 6.5 s; `bundles` is written automatically. GUI route: **Plugins panel → Add plugin**.
+If GitHub will not fetch, download the archive and install it locally — **do not use the tarball URL**: the host passes `CI=true`, and that path writes a lockfile entry without `integrity` and freezes the whole profile (see INSTALL.en.md 7.5):
+
+```bat
+dsh-plugin.bat plugin --profile desktop add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.3.tar.gz"
+```
+
+> Measured 6.5 s; `bundles` is written automatically. GUI route (limited — see INSTALL.en.md 2.3): **Plugins panel → Add plugin**.
+
+A simpler manual alternative (no helper, no quitting DSH, but you must enable it once on the Plugins page):
+
+```bash
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
+```
 
 ## 4 · Confirm the bundle row
 

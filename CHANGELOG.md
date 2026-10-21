@@ -3,6 +3,26 @@
 本文件记录本分支（`Potato1008ypy/dsh-purge-0.2.1rc2-fix`）的版本变更。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循上游 `1.1.71` 并附加适配后缀。
 
+## [1.1.71-dsh0.2.1rc2-fix.3] — 2026-10-21
+
+基线同上。本轮只改安装链路与文档，插件运行时逻辑未动。
+
+### 新增
+
+- **`install.ps1` 一键安装脚本**：自动探测 DSH 安装目录（运行中进程 / 常见安装位置 / 注册表），判定桌面端与原版 CLI，选出 profile，执行 `pnpm add`，写入 `dsh.profile.bundles`，最后重新解析校验、失败回滚。开关：`-DryRun`、`-DshInstall`、`-Mode`、`-NoBundle`、`-Force`、`-SelfTest`。脚本自身会拒绝远端 tarball 地址，并在 DSH 仍在运行时拒绝执行。
+- **INSTALL 7.5 节**：`ERR_PNPM_MISSING_TARBALL_INTEGRITY` 的成因与恢复。成因是宿主以 `CI=true`（冻结模式）调 pnpm，`pnpm add <远端 tarball 地址>` 因此只写 `tarball`、不写 `integrity`；等到真正取字节时（换机器、空 store、`--frozen-lockfile`）pnpm 拒绝，并因校验收敛而冻结整个 profile 的安装与卸载。恢复方式是从 `importers`、`packages`、`snapshots` 三处摘掉该条，**不要**删整个锁文件。
+
+### 变更
+
+- **安装方式推荐顺序重排**：一键脚本 → `pnpm add` → 桌面端命令行 → GUI「插件」页。GUI 由「推荐」降为「受限」：profile 里一旦有被 DSH 加载的原生模块（如 `lightningcss-win32-x64-msvc`），pnpm 重命名该目录必报 `ERR_PNPM_EPERM`，而 GUI 安装又要求 DSH 正在运行，构成死锁。
+- 文档里所有「用 Release tarball 地址安装」的建议改为 GitHub 源或本地 `file:` 压缩包；本地压缩包会写入完整 `integrity`（`CI=true` 下实测同样如此）。
+- INSTALL 章节重编：2.1 `pnpm add`、2.2 桌面端命令行、2.3 GUI、2.4 原版 DSH、2.5 替换旧版本；交叉引用同步。
+
+### 修正
+
+- 补上 `::` 是批处理注释、不能粘进 PowerShell，以及 PowerShell 调用 `dsh-plugin.bat` 需带 `.\` 前缀的说明。
+- GUI 安装在同一页「启动」的措辞改为「启用请走会写 `bundles` 的路径」，避免指向已降级的入口。
+
 ## [1.1.71-dsh0.2.1rc2-fix.2] — 2026-10-21
 
 基线：上游 `1.1.71`（commit `6c1d638`）。宿主目标：DSH `0.2.1-rc.2`。

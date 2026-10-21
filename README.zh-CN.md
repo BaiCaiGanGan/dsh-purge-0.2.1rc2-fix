@@ -73,38 +73,60 @@ FIX-01 至 FIX-06 由本仓库定位。FIX-07 至 FIX-09 在与 [`evilevil/dsh-p
 
 | 步骤 | 操作位置 |
 |---|---|
-| 1 · 装包 | 「插件」页 → **添加插件** |
-| 2 · 启用 | 同一页 → **启动**，然后重启 DSH |
+| 1 · 装包 | `install.ps1`，或「插件」页 → **添加插件** |
+| 2 · 启用 | 一键脚本会顺带写好 `bundles`；否则同一页 → **启动**，然后重启 DSH |
 | 3 · 打补丁 | 会话标题旁 **dsh-purge → 清洗 → 应用** |
 
-### 桌面端（推荐）
+按推荐顺序，四条装法任选一条：
 
-1. 打开 **「插件」页 → 添加插件**，粘贴 Git 地址、Release 压缩包地址或本地绝对路径。
-2. 装完后在**同一页**点「启动」，然后完整退出并重新启动 DSH。
-3. 会话标题旁点 **dsh-purge → 清洗 → 应用**；成功后 DSH 会自动再重启一次。
+| 顺序 | 方式 | 要不要关 DSH | 自动写 `bundles` |
+|---|---|---|---|
+| 1 | 一键脚本 `install.ps1` | 要 | ✅ |
+| 2 | `pnpm add` | 不要 | ❌（装完手动启用一次） |
+| 3 | 桌面端命令行 helper | 要 | ✅ |
+| 4 | GUI「插件」页 | 不要（但可能撞 `EPERM`） | ✅ |
 
-宿主在添加前会执行一次 `git ls-remote` 连通性检查（默认 5 秒超时），网络不可达时会明确报错。
+### 1 · 一键脚本（Windows，最省事）
 
-### 桌面端（命令行）
-
-```bat
-:: dsh-plugin.bat 是 desktop-cli.js 的封装，见 INSTALL.md
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+```powershell
+# 先完全退出 DSH
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-`dsh plugin --profile desktop` 会被直接拒绝（`profile "desktop" is managed exclusively by the Electron application`）；`<DSH 安装目录>\resources\app\lib\desktop-cli.js` 是唯一放行入口。这条路径会同时写入 `dependencies` 与 `dsh.profile.bundles`。
+自动探测 DSH 安装目录与运行模式，装包后写入 `dsh.profile.bundles`——**重启即生效，不用再点启用**，等于把上面第 1、2 步合成一步。DSH 未退出时脚本拒绝执行（否则会撞 `ERR_PNPM_EPERM`）。完整开关见 [INSTALL.md](INSTALL.md) 2.0。
 
-### 通过 `pnpm add` 安装
+### 2 · 通过 `pnpm add` 安装（最直接）
 
 ```bash
-pnpm add https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.2.tar.gz
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
 `pnpm add` 只写 `dependencies`，不登记 `dsh.profile.bundles`。装完须到「插件」页手动启用，再重启 DSH。
 
+> **不要用 Release 的 tarball 地址安装。** 宿主给 pnpm 带 `CI=true`（冻结模式），此时 `pnpm add <远端 tarball 地址>` 会把依赖写进锁文件却不写 `integrity`。等到真正需要取包时（换机器、空缓存、`--frozen-lockfile`），pnpm 拒绝安装，并因校验收敛而**冻结该 profile 的所有安装与卸载**，报 `ERR_PNPM_MISSING_TARBALL_INTEGRITY`。GitHub 源与本地 `file:` 压缩包都不会触发。恢复步骤见 [INSTALL.md](INSTALL.md) 第 7.5 节。
+
+### 3 · 桌面端命令行（helper）
+
+```bat
+:: dsh-plugin.bat 是 desktop-cli.js 的封装，见 INSTALL.md
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
+```
+
+`dsh plugin --profile desktop` 会被直接拒绝（`profile "desktop" is managed exclusively by the Electron application`）；`<DSH 安装目录>\resources\app\lib\desktop-cli.js` 是唯一放行入口。这条路径会同时写入 `dependencies` 与 `dsh.profile.bundles`，需先退出 DSH。
+
+### 4 · 桌面端「插件」页（GUI）
+
+1. 打开 **「插件」页 → 添加插件**，粘贴 Git 地址或本地绝对路径。
+2. 装完后在**同一页**点「启动」，然后完整退出并重新启动 DSH。
+3. 会话标题旁点 **dsh-purge → 清洗 → 应用**；成功后 DSH 会自动再重启一次。
+
+> **实测：profile 里装了带原生模块的插件（如 web-ui 那一套）时，这条路径会反复失败。** pnpm 要重命名 `node_modules` 里的原生模块目录，而正在运行的 DSH 占着它，报 `ERR_PNPM_EPERM`；GUI 安装又要求 DSH 运行，构成死锁。这类环境改用上面 1–3 任一条。
+
+宿主在添加前会执行一次 `git ls-remote` 连通性检查（默认 5 秒超时），网络不可达时会明确报错。
+
 ### 不要在 dsh-market（插件市场）里启用
 
-> dsh-market 的启用只走热挂载一条路径（`dshmarket/lib/routes.js:773`），失败即保持禁用，且**不写 `dsh.profile.bundles`**。本插件的 bundle patch 含 `inject` 与 `config`，热挂载必然失败，因此它「重启后生效」的提示不会发生。启用请使用 GUI「插件」页。
+> dsh-market 的启用只走热挂载一条路径（`dshmarket/lib/routes.js:773`），失败即保持禁用，且**不写 `dsh.profile.bundles`**。本插件的 bundle patch 含 `inject` 与 `config`，热挂载必然失败，因此它「重启后生效」的提示不会发生。启用请使用方式 1 或 3（它们会写 `bundles`）。
 
 完整参考——入口能力对照、验收步骤、旧版本迁移、卸载与故障排查——见 **[INSTALL.md](INSTALL.md)**。
 
@@ -403,8 +425,7 @@ $cands | Select-Object -Unique | Where-Object { $_ -and (Test-Path (Join-Path $_
 >
 > ```sh
 > git clone --branch v1.1.71-dsh0.2.1rc2-fix https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix.git "$DSH_HOME/plugins/dsh-purge"
-> # 或者用压缩包：
-> #   https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.tar.gz
+> # （没有 git？下载 Release 压缩包解压到这里；不要把 tarball 地址喂给 pnpm，见 INSTALL.md 7.5）
 > ```
 >
 > 这一段里的其余内容（路径、`package.json` 改动、应用步骤）仍然适用。

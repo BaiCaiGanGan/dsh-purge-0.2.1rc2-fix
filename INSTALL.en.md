@@ -6,7 +6,7 @@ This is the full reference: entry-point selection, verification, migration from 
 | Item | Value |
 |---|---|
 | Target host | DSH `0.2.1-rc.2` (both DSH Desktop and dsh CLI) |
-| Plugin version | `1.1.71-dsh0.2.1rc2-fix.2` |
+| Plugin version | `1.1.71-dsh0.2.1rc2-fix.3` |
 | Prerequisites | Node.js ≥18 (≥22 to avoid a console flash on Windows); GitHub reachable, or the Release tarball already downloaded |
 | Time required | About 2 minutes for the first install, plus one full DSH restart |
 | Related docs | [QUICKSTART.md](QUICKSTART.md) · [FIXES.en.md](FIXES.en.md) · [FORK-NOTES.md](FORK-NOTES.md) · [CHANGELOG.md](CHANGELOG.md) |
@@ -54,31 +54,66 @@ Copy-Item pnpm-lock.yaml "pnpm-lock.yaml.bak-$(Get-Date -Format yyyyMMdd-HHmmss)
 
 # II · Installation
 
-The three entry points differ in what they can do — check before choosing:
+In recommended order — pick one of the four:
 
-| Entry point | Installs the package | Writes `dsh.profile.bundles` | Enables this plugin |
+| Order | Route | Installs | Writes `bundles` | Notes |
+|---|---|---|---|---|
+| **1** | 2.0 `install.ps1` | ✅ | ✅ automatic | One command, auto-detects; quit DSH first |
+| **2** | 2.1 `pnpm add` | ✅ | ❌ | Most direct; enable by hand once |
+| **3** | 2.2 Desktop command line | ✅ | ✅ automatic | Needs the helper; quit DSH first |
+| **4** | 2.3 GUI Plugins page | ✅ | ✅ automatic | Only on a profile with no loaded native modules |
+
+These entry points are not for this plugin:
+
+| Entry point | Installs | Writes `dsh.profile.bundles` | Enables this plugin |
 |---|---|---|---|
-| GUI Plugins page | ✅ | ✅ automatic | ✅ **recommended** |
-| `<app>\lib\desktop-cli.js` | ✅ | ✅ automatic | ✅ |
 | `<app>\node_modules\@deepseek-ai\dsh\lib\bin.js` | ❌ refused (desktop) | — | — |
 | dsh-market | ✅ | ❌ | ❌ |
-| `pnpm add` inside `profiles\desktop` | ✅ | ❌ | ❌ |
 
 > **dsh-market's "Enable" cannot work for this plugin.** It only attempts a hot mount
 > (`dshmarket/lib/routes.js:773`); on failure it leaves the plugin disabled and never writes
 > `dsh.profile.bundles`. This plugin's patch carries `inject` and `config`, so the hot mount always
-> fails. Use it to install/uninstall if you like — **enable from the GUI Plugins page**.
-> See appendix A.1 for why.
+> fails. Use it to install/uninstall if you like — **enable via 2.0 or 2.2 (they write `bundles`)**,
+> or register it by hand. See appendix A.1 for why.
 
-## 2.1 Path A · GUI Plugins page (recommended)
+## 2.0 One-click install (Windows)
 
-1. Open the **Plugins page → Add plugin**.
-2. Paste a Git URL, the Release archive URL, or an absolute local path.
-3. When the install finishes, continue with section III (Enabling).
+`install.ps1` runs the whole chain:
 
-Before adding, the host performs a `git ls-remote` reachability check, 5-second timeout by default; it reports an unreachable network explicitly.
-If that check is what stalls on a China network, use the tarball URL from 2.2, or set an HTTPS prefix under
-**Settings → Plugins → Plugin configuration → GitHub accelerator**.
+```
+detect install dir → decide desktop / plain CLI → pick profile → pnpm add → write dsh.profile.bundles
+```
+
+That last step is the point: once `dsh.profile.bundles` is registered, the plugin loads with the profile on restart — no manual enable click.
+
+```powershell
+# fully quit DSH first; the script checks and refuses otherwise
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+| Switch | Effect |
+|---|---|
+| `-DryRun` | Print the commands that would run; change nothing |
+| `-DshInstall "<dir>"` | Specify the DSH install directory when detection fails |
+| `-Mode cli` / `-Mode desktop` | Skip auto-detection and force an entry point |
+| `-NoBundle` | Install the package only, skip `bundles` (same as a bare `pnpm add`; enable by hand) |
+| `-Force` | Continue while DSH is running — hits `EPERM`, troubleshooting only |
+| `-SelfTest` | Run the write logic against a built-in sample; touches no real profile |
+
+Built-in protection: refuses remote tarball URLs (see 7.5), backs up `package.json` before changing it, re-parses to verify after writing, rolls back on failure, and sweeps stale `*_tmp_*` directories.
+
+Start DSH afterwards.
+
+## 2.1 Path A · `pnpm add` (most direct)
+
+```bash
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
+```
+
+`pnpm add` writes `dependencies` only and does **not** register `dsh.profile.bundles`, so you must enable the plugin once on the Plugins page afterwards (section III).
+
+> **Do not use the Release tarball URL.** The host passes `CI=true` to pnpm, and that route writes a lockfile entry without `integrity`, which then freezes the whole profile (cause and recovery: 7.5).
+> On a restricted network, download the archive first and add the local file — pnpm writes a full checksum for it: `pnpm add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.3.tar.gz"`.
 
 ## 2.2 Path B · Desktop command line (`desktop-cli.js`)
 
@@ -96,31 +131,51 @@ set ELECTRON_RUN_AS_NODE=1
 `%*` forwards quoted specs verbatim. Install:
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
-If GitHub will not fetch, use the tarball (**stable URL, no version in it**, so later version bumps change neither this command nor these docs):
+> The snippet above is `.bat` content. Lines starting with `::` are **batch comments** — pasting them into PowerShell raises `'::' is not recognized`.
+> From PowerShell you must prefix with `.\` (`.\dsh-plugin.bat …`) or use the full path; PowerShell never runs a bare filename from the current directory.
+
+If GitHub will not fetch, **do not fall back to the Release tarball URL** — the host passes `CI=true` to pnpm, and that path writes a lockfile entry without `integrity`, which then freezes the whole profile (cause and recovery: 7.5). Use a local archive instead:
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.tar.gz"
+:: download dsh-purge-dsh0.2.1rc2-fix.3.tar.gz first, then install that local path
+dsh-plugin.bat plugin --profile desktop add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.3.tar.gz"
 ```
+
+pnpm writes a full checksum for a local archive (measured under `CI=true` too). If the host rejects a `file:` spec, use the offline directory route in 7.4.
 
 This path writes both `dependencies` and `dsh.profile.bundles`; no hand-editing `package.json`.
 
 > The helper is not required to install, but verification, migration and uninstalling below all use it.
 > Without it you must assemble the command by hand every time — see appendix A.2.
 
-## 2.3 Path C · Plain DSH (no desktop lock)
+## 2.3 Path C · GUI Plugins page
+
+1. Open the **Plugins page → Add plugin**.
+2. Paste a Git URL or an absolute local path.
+3. When the install finishes, continue with section III (Enabling).
+
+Before adding, the host performs a `git ls-remote` reachability check, 5-second timeout by default; it reports an unreachable network explicitly.
+If that check is what stalls on a China network, use the **local archive** route in 2.1, or set an HTTPS prefix under
+**Settings → Plugins → Plugin configuration → GitHub accelerator**.
+
+> **Limit (measured)**: as soon as the profile carries a native module that DSH has loaded (e.g. `lightningcss-win32-x64-msvc`, pulled in by client-UI plugins such as a web-ui set), the install fails with
+> `ERR_PNPM_EPERM … rename '…_tmp_…'`: pnpm must rename that directory while the running DSH maps the `.node` file inside it.
+> A GUI install requires DSH to be running, which is the deadlock. Use the script in 2.0, or 2.1 / 2.2, in such an environment.
+
+## 2.4 Path D · Plain DSH (no desktop lock)
 
 On plain DSH the ordinary CLI works directly. The profile is usually `web`; substitute whatever 1.2 showed:
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
 Other differences are in appendix B.
 
-## 2.4 Replacing an older build: uninstall first
+## 2.5 Replacing an older build: uninstall first
 
 Skip this section for a fresh install. When replacing, the uninstall steps in section VI **must be done first**, otherwise a duplicated `- insert:` block may survive.
 
@@ -350,7 +405,31 @@ dsh-purge-dsh0.2.1rc2-fix.tar.gz   ← extract, then drop the whole directory in
 <DSH_HOME>\profiles\desktop\node_modules\dsh-purge\
 ```
 
-## 7.5 Closing notes
+## 7.5 `ERR_PNPM_MISSING_TARBALL_INTEGRITY` during install
+
+```
+[ERR_PNPM_MISSING_TARBALL_INTEGRITY] Cannot install package "dsh-purge@https://…tar.gz":
+its lockfile entry has no "integrity" field, so pnpm cannot verify the downloaded tarball.
+```
+
+**Cause.** The host invokes pnpm with `CI=true` (frozen mode). Under it, `pnpm add <remote tarball URL>` records the dependency in the lockfile with `resolution` holding only `tarball` and **no `integrity`** — frozen mode skipped the fetch-and-verify step. The moment the bytes are actually needed (another machine, an empty store, `--frozen-lockfile`), pnpm cannot verify the content and refuses. Because that verification runs before any add/remove, it **blocks every install and uninstall in the profile** — including uninstalling the offender itself.
+
+GitHub sources (`github:…`) and local `file:` archives do not trigger it: pnpm recognises the former, and it holds the bytes for the latter.
+
+**Recovery.** Remove that one dependency from both files, then reinstall the reliable way. **Do not delete the whole `pnpm-lock.yaml`** — that re-resolves every other plugin's version. Three places to remove: the entry under `importers`, and the same key under `packages` and `snapshots`.
+
+```powershell
+cd "$env:USERPROFILE\.dsh\profiles\desktop"
+Copy-Item package.json  "package.json.bak-$(Get-Date -Format yyyyMMdd-HHmmss)"
+Copy-Item pnpm-lock.yaml "pnpm-lock.yaml.bak-$(Get-Date -Format yyyyMMdd-HHmmss)"
+Select-String -Path pnpm-lock.yaml -Pattern "dsh-purge" -Context 0,4   # see exactly which lines
+```
+
+Once it is clean, reinstall per 2.1 (`pnpm add`) or 2.2 (desktop command line). The check: `pnpm install --frozen-lockfile` no longer fails this way.
+
+The message shape depends on the pnpm version: 11.20 and earlier name one package per error; from 11.21 the supply-chain pass lists every violator at once.
+
+## 7.6 Closing notes
 
 - **No data is lost**: the profile directory, sessions and the `redteam` SQLite all live under `$DSH_HOME`, independent of the plugin version.
 - **Hand-edited presets and prompts are not overwritten**: the host will not touch a user copy when the template changes, which is why old-format copies need the repair tool in section V.
@@ -410,7 +489,7 @@ Plain DSH and DSH Desktop are the same package, `@deepseek-ai/dsh@0.2.1-rc.2`, a
 **① No desktop lock, so the ordinary CLI works** (appendix A.1 does not apply):
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3"
 ```
 
 **② The adapter switches to web automatically.** The plugin picks an adapter per surface:

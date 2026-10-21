@@ -69,21 +69,44 @@ Per-fix symptoms, root causes, changes and verification: **[FIXES.en.md](FIXES.e
 
 ## Install
 
-```bash
-# Release artifact (recommended, reproducible)
-pnpm add https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.2.tar.gz
+Installation has three steps: **install → enable → patch the host**. The first two make the host load this plugin; only the third rewrites host files, and it never happens on its own.
 
-# Or install straight from the tag
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+| Step | Where |
+|---|---|
+| 1 · Install | Plugins page → **Add plugin** |
+| 2 · Enable | Same page → **Enable**, then restart DSH |
+| 3 · Patch | **dsh-purge → Clean → Apply** next to the session title |
+
+### Desktop (recommended)
+
+1. Open the **Plugins page → Add plugin** and paste a Git URL, the Release archive URL, or an absolute local path.
+2. When it finishes, click **Enable** on the **same** page, then fully quit and restart DSH.
+3. Click **dsh-purge → Clean → Apply** next to the session title; on success DSH restarts itself once more.
+
+Before adding, the host performs a `git ls-remote` reachability check (5-second timeout by default) and reports unreachable networks explicitly.
+
+### Desktop (command line)
+
+```bat
+:: dsh-plugin.bat wraps desktop-cli.js; see INSTALL.en.md
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
 ```
 
-GUI path: **plugin panel → add plugin**, which accepts a Git URL, an archive or an absolute local path. Before adding, the host performs a `git ls-remote` reachability check (5-second timeout by default) and reports unreachable networks explicitly.
+Calling `dsh plugin --profile desktop` directly is rejected (`profile "desktop" is managed exclusively by the Electron application`); `<DSH install dir>\resources\app\lib\desktop-cli.js` is the only gate that lets it through. That path writes **both** `dependencies` and `dsh.profile.bundles`.
 
-> **`dsh plugin --profile desktop` does not work on the desktop build.**
-> It returns `error: profile "desktop" is managed exclusively by the Electron application`.
-> The `desktop` profile can only be managed by the desktop build's own `<DSH install dir>\resources\app\lib\desktop-cli.js` (the Electron carrier passing `manageDesktopProfile: true` is the only gate). Two workable paths therefore: the GUI plugin panel, or `desktop-cli.js` directly.
+### Installing with `pnpm add`
 
-The full procedure — including the Windows quirk that `DSH Desktop.exe` does not return stdout, the two `package.json` fields that decide whether a bundle actually loads, and recovery when DSH will not start — is in **[INSTALL.en.md](INSTALL.en.md)**.
+```bash
+pnpm add https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.2.tar.gz
+```
+
+`pnpm add` writes `dependencies` only — it does not register `dsh.profile.bundles`. Afterwards you must enable it on the **Plugins page**, then restart DSH.
+
+### Do not enable it in dsh-market
+
+> dsh-market's enable only attempts a hot mount (`dshmarket/lib/routes.js:773`); on failure it leaves the plugin disabled and **never writes `dsh.profile.bundles`**. This plugin's patch carries `inject` and `config`, so the hot mount always fails — its "activates on restart" message never comes true. Enable it from the GUI **Plugins** page instead.
+
+For the full reference — entry-point capabilities, verification, migrating from an older version, uninstalling and troubleshooting — see **[INSTALL.en.md](INSTALL.en.md)**.
 
 ## Verify
 

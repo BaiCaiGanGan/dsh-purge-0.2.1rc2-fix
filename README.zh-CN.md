@@ -69,21 +69,44 @@ FIX-01 至 FIX-06 由本仓库定位。FIX-07 至 FIX-09 在与 [`evilevil/dsh-p
 
 ## 安装
 
-```bash
-# 使用 Release 产物（推荐，可复现）
-pnpm add https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.2.tar.gz
+安装分三步：**装包 → 启用 → 打补丁**。前两步让宿主加载本插件，第三步才真正改写宿主文件，且不会自动执行。
 
-# 或直接从 tag 安装
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
+| 步骤 | 操作位置 |
+|---|---|
+| 1 · 装包 | 「插件」页 → **添加插件** |
+| 2 · 启用 | 同一页 → **启动**，然后重启 DSH |
+| 3 · 打补丁 | 会话标题旁 **dsh-purge → 清洗 → 应用** |
+
+### 桌面端（推荐）
+
+1. 打开 **「插件」页 → 添加插件**，粘贴 Git 地址、Release 压缩包地址或本地绝对路径。
+2. 装完后在**同一页**点「启动」，然后完整退出并重新启动 DSH。
+3. 会话标题旁点 **dsh-purge → 清洗 → 应用**；成功后 DSH 会自动再重启一次。
+
+宿主在添加前会执行一次 `git ls-remote` 连通性检查（默认 5 秒超时），网络不可达时会明确报错。
+
+### 桌面端（命令行）
+
+```bat
+:: dsh-plugin.bat 是 desktop-cli.js 的封装，见 INSTALL.md
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
 ```
 
-GUI 路径：**插件面板 → 添加插件**，接受 Git 地址、压缩包或本地绝对路径。宿主在添加前会执行一次 `git ls-remote` 连通性检查（默认 5 秒超时），网络不可达时会明确报错。
+`dsh plugin --profile desktop` 会被直接拒绝（`profile "desktop" is managed exclusively by the Electron application`）；`<DSH 安装目录>\resources\app\lib\desktop-cli.js` 是唯一放行入口。这条路径会同时写入 `dependencies` 与 `dsh.profile.bundles`。
 
-> **桌面端无法使用 `dsh plugin --profile desktop`。**
-> 该命令返回 `error: profile "desktop" is managed exclusively by the Electron application`。
-> `desktop` profile 仅能由桌面端自带的 `<DSH 安装目录>\resources\app\lib\desktop-cli.js` 管理（Electron 载体传入 `manageDesktopProfile: true` 是唯一放行条件）。因此两条可行路径：GUI 插件面板，或直接调用 `desktop-cli.js`。
+### 通过 `pnpm add` 安装
 
-完整流程（含 Windows 下 `DSH Desktop.exe` 不回传 stdout 的处理）、判定 bundle 是否真正加载所需的两个 `package.json` 字段，以及 DSH 无法启动时的救援步骤，见 **[INSTALL.md](INSTALL.md)**。
+```bash
+pnpm add https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.2.tar.gz
+```
+
+`pnpm add` 只写 `dependencies`，不登记 `dsh.profile.bundles`。装完须到「插件」页手动启用，再重启 DSH。
+
+### 不要在 dsh-market（插件市场）里启用
+
+> dsh-market 的启用只走热挂载一条路径（`dshmarket/lib/routes.js:773`），失败即保持禁用，且**不写 `dsh.profile.bundles`**。本插件的 bundle patch 含 `inject` 与 `config`，热挂载必然失败，因此它「重启后生效」的提示不会发生。启用请使用 GUI「插件」页。
+
+完整参考——入口能力对照、验收步骤、旧版本迁移、卸载与故障排查——见 **[INSTALL.md](INSTALL.md)**。
 
 ## 验证
 

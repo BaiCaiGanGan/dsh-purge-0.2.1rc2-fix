@@ -85,7 +85,7 @@ $p = Get-Content "$env:USERPROFILE\.dsh\profiles\desktop\package.json" -Raw | Co
 ## 3 · 装
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
 ```
 
 GitHub 拉不动就换稳定 tarball（不带版本号，以后升级不用改）：
@@ -94,7 +94,11 @@ GitHub 拉不动就换稳定 tarball（不带版本号，以后升级不用改�
 dsh-plugin.bat plugin --profile desktop add "https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases/latest/download/dsh-purge-dsh0.2.1rc2-fix.tar.gz"
 ```
 
-> 实测 6.5 秒，`bundles` 自动写入。GUI 路线：**插件面板 → 添加插件**。
+> 实测 6.5 秒，`bundles` 自动写入。GUI 路线：**「插件」页 → 添加插件**。
+
+> **别用 dsh-market 点「启动」。** 它只走热挂载（本插件含 `inject`/`config`，必然失败），
+> 且那条路径不写 `dsh.profile.bundles`——重启后依然是未启用。启用请用 **GUI「插件」页 → 启动**。
+> 判据就是第 4 步的 `bundle: has dsh-purge`。
 
 ## 4 · 确认 bundles
 
@@ -113,7 +117,7 @@ node "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-purge\dsh-purge-re
 ```
 
 > 先不带 `--fix` 跑一遍是检查模式。**必须用 `node`**，别用 `$DSH_BIN`。
-> 报 `✗ 找不到 yaml 解析器`（exit 2）说明 DSH 不在默认路径 —— 改用桌面端自带 node（见 INSTALL.md 第 7 步）。
+> 报 `✗ 找不到 yaml 解析器`（exit 2）说明 DSH 不在默认路径 —— 改用桌面端自带 node（见 INSTALL.md 第 5 节）。
 
 ## 6 · 记下日志行数，然后重启
 
@@ -270,7 +274,7 @@ $p = Get-Content "$env:USERPROFILE\.dsh\profiles\desktop\package.json" -Raw | Co
 ## 3 · Install
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.2"
 ```
 
 If GitHub will not fetch, use the stable tarball (no version in it, so upgrades need no command change):
@@ -298,7 +302,7 @@ node "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-purge\dsh-purge-re
 ```
 
 > Run it once without `--fix` first for check mode. **Use `node`**, not `$DSH_BIN`.
-> `✗ 找不到 yaml 解析器` (exit 2) means DSH is not at the default path — use the desktop app's own node instead (INSTALL.en.md step 7).
+> `✗ 找不到 yaml 解析器` (exit 2) means DSH is not at the default path — use the desktop app's own node instead (INSTALL.en.md section V).
 
 ## 6 · Note the log line count, then restart
 

@@ -89,6 +89,18 @@ Copy-Item pnpm-lock.yaml "pnpm-lock.yaml.bak-$(Get-Date -Format yyyyMMdd-HHmmss)
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
+没有仓库也行，一行拉取并执行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.3/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+```
+
+> **为什么不是 `irm … | iex`**：`irm` 把脚本读进内存时按系统 ANSI 解码，脚本里的中文会变成乱码；
+> 必须先落成文件（字节不变、UTF-8 BOM 保留）再执行。想先看将做什么，把结尾换成 `-DryRun`。
+> `raw.githubusercontent.com` 不可达时，把地址换成 jsDelivr 镜像：
+> `https://cdn.jsdelivr.net/gh/Potato1008ypy/dsh-purge-0.2.1rc2-fix@v1.1.71-dsh0.2.1rc2-fix.3/install.ps1`
+> （把 tag 换成 `main` 即跟随最新提交，但版本不再可复现。）
+
 | 开关 | 作用 |
 |---|---|
 | `-DryRun` | 只打印将执行的命令，不改任何文件 |

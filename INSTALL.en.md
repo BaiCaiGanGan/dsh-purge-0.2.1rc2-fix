@@ -91,6 +91,18 @@ That last step is the point: once `dsh.profile.bundles` is registered, the plugi
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
+No clone needed — one line fetches and runs it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.3/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+```
+
+> **Why not `irm … | iex`**: `irm` decodes the script into an in-memory string using the system ANSI code page, which mangles the Chinese text inside it.
+> Download it to a file first (bytes unchanged, UTF-8 BOM preserved), then run that file. Append `-DryRun` to see the plan without changing anything.
+> If `raw.githubusercontent.com` is unreachable, swap in the jsDelivr mirror:
+> `https://cdn.jsdelivr.net/gh/Potato1008ypy/dsh-purge-0.2.1rc2-fix@v1.1.71-dsh0.2.1rc2-fix.3/install.ps1`
+> (replace the tag with `main` to follow the newest commit — no longer reproducible.)
+
 | Switch | Effect |
 |---|---|
 | `-DryRun` | Print the commands that would run; change nothing |

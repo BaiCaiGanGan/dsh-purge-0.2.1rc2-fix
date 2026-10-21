@@ -11,6 +11,8 @@
 
 - **`install.ps1` 一键安装脚本**：自动探测 DSH 安装目录（运行中进程 / 常见安装位置 / 注册表），判定桌面端与原版 CLI，选出 profile，执行 `pnpm add`，写入 `dsh.profile.bundles`，最后重新解析校验、失败回滚。开关：`-DryRun`、`-DshInstall`、`-Mode`、`-NoBundle`、`-Force`、`-SelfTest`。脚本自身会拒绝远端 tarball 地址，并在 DSH 仍在运行时拒绝执行。
 - **INSTALL 7.5 节**：`ERR_PNPM_MISSING_TARBALL_INTEGRITY` 的成因与恢复。成因是宿主以 `CI=true`（冻结模式）调 pnpm，`pnpm add <远端 tarball 地址>` 因此只写 `tarball`、不写 `integrity`；等到真正取字节时（换机器、空 store、`--frozen-lockfile`）pnpm 拒绝，并因校验收敛而冻结整个 profile 的安装与卸载。恢复方式是从 `importers`、`packages`、`snapshots` 三处摘掉该条，**不要**删整个锁文件。
+- **一行安装（不用 clone）**：`powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB <raw url> -OutFile …; & …"`。
+  不用 `irm … | iex`：`irm` 按系统 ANSI 解码，脚本内的中文会变成乱码，必须先落盘（字节不变、UTF-8 BOM 保留）再执行。文档同时给出 jsDelivr 镜像地址。
 
 ### 变更
 

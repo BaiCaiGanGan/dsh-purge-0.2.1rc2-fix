@@ -93,6 +93,12 @@ FIX-01 至 FIX-06 由本仓库定位。FIX-07 至 FIX-09 在与 [`evilevil/dsh-p
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
+没有仓库也行，一行拉取并执行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.3/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+```
+
 自动探测 DSH 安装目录与运行模式，装包后写入 `dsh.profile.bundles`——**重启即生效，不用再点启用**，等于把上面第 1、2 步合成一步。DSH 未退出时脚本拒绝执行（否则会撞 `ERR_PNPM_EPERM`）。完整开关见 [INSTALL.md](INSTALL.md) 2.0。
 
 ### 2 · 通过 `pnpm add` 安装（最直接）

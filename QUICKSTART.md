@@ -90,6 +90,12 @@ $p = Get-Content "$env:USERPROFILE\.dsh\profiles\desktop\package.json" -Raw | Co
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
+没有仓库就一行拉取执行（`irm … | iex` 不行，中文会乱码；必须先落盘）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.3/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+```
+
 手动命令行（等价于脚本里的装包那一步，但不写 `bundles`，装完要手动启用）：
 
 ```bat
@@ -292,6 +298,12 @@ Least work is the one-click script: it detects the install directory and writes 
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+No clone? Fetch and run it in one line (`irm … | iex` will not do — the Chinese text gets mangled; save it to a file first):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.3/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
 ```
 
 Manual command line (the install step alone — no `bundles`, so enable by hand afterwards):

@@ -93,6 +93,12 @@ In recommended order — pick one of the four:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
+No clone needed — one line fetches and runs it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.3/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+```
+
 It detects the DSH install directory and run mode, installs the package, then writes `dsh.profile.bundles` — **it takes effect on restart with no enable click**, collapsing steps 1 and 2 above into one. The script refuses to run while DSH is up (that path hits `ERR_PNPM_EPERM`). Full switch list: [INSTALL.en.md](INSTALL.en.md) 2.0.
 
 ### 2 · Installing with `pnpm add` (most direct)

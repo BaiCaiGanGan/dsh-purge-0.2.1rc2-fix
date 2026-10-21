@@ -66,7 +66,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Spec = "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.4",
+    [string]$Spec = "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5",
     [string]$PackageName = "dsh-purge",
     [string]$DshHome = (Join-Path $env:USERPROFILE ".dsh"),
     [string]$DshInstall = "",
@@ -85,9 +85,9 @@ $script:ExitCode = 0
 
 # 本版本对应的发布产物：git 不通时的兜底来源（镜像按顺序尝试）
 $script:RepoSlug = "Potato1008ypy/dsh-purge-0.2.1rc2-fix"
-$script:ReleaseTag = "v1.1.71-dsh0.2.1rc2-fix.4"
-$script:AssetName = "dsh-purge-dsh0.2.1rc2-fix.4.tar.gz"
-$script:AssetVersion = "1.1.71-dsh0.2.1rc2-fix.4"
+$script:ReleaseTag = "v1.1.71-dsh0.2.1rc2-fix.5"
+$script:AssetName = "dsh-purge-dsh0.2.1rc2-fix.5.tar.gz"
+$script:AssetVersion = "1.1.71-dsh0.2.1rc2-fix.5"
 $script:AssetMirrors = @(
     "https://ghfast.top/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
     "https://gh-proxy.com/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
@@ -223,6 +223,12 @@ function Invoke-DesktopCli {
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
     $psi.CreateNoWindow = $true
+
+    # pnpm 的日志里带 ✅ ⚠️ 这类字符，是 UTF-8 多字节序列。不指定编码时 .NET Framework 会按
+    # 系统 OEM 码页（简中 936）解码，✅(E2 9C 85) 就被解成「鉁?」。这里显式按 UTF-8 读。
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $psi.StandardOutputEncoding = $utf8
+    $psi.StandardErrorEncoding = $utf8
 
     $p = [System.Diagnostics.Process]::Start($psi)
     $outTask = $p.StandardOutput.ReadToEndAsync()      # 异步读流，避免管道写满互相阻塞
@@ -427,9 +433,14 @@ function Invoke-Install([string]$spec) {
         $res = Invoke-DesktopCli -Dir $installDir -CliArgs $a
         return [pscustomobject]@{ Code = $res.Code; Output = $res.Output }
     }
-    $out = (& dsh @a 2>&1 | Out-String)
-    return [pscustomobject]@{ Code = $LASTEXITCODE; Output = $out }
-}
+    # 原生命令输出是 UTF-8，而 PowerShell 按 [Console]::OutputEncoding（简中默认 936）解码，
+    # pnpm 日志里的 ✅ 会变成「鉁?」。只在这次调用期间切到 65001，读完立刻还原，
+    # 免得影响脚本自己的中文输出。
+    $prevEnc = $null
+    try { $prevEnc = [Console]::OutputEncoding; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+    try { $out = (& dsh @a 2>&1 | Out-String) }
+    finally { if ($prevEnc) { try { [Console]::OutputEncoding = $prevEnc } catch { } } }
+    return [pscustomobject]@{ Code = $LASTEXITCODE; Output = $out }}
 
 Say ""
 Say "安装中……"

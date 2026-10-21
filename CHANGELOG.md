@@ -3,6 +3,14 @@
 本文件记录本分支（`Potato1008ypy/dsh-purge-0.2.1rc2-fix`）的版本变更。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循上游 `1.1.71` 并附加适配后缀。
 
+## [1.1.71-dsh0.2.1rc2-fix.5] — 2026-10-21
+
+### 修正
+
+- **pnpm 日志里的 `✅` 显示成 `鉁?`**。`desktop-cli` 的输出由 `Invoke-DesktopCli` 捕获，未指定编码时 .NET Framework 按系统 OEM 码页（简中 936）解码，UTF-8 的 `✅`（`E2 9C 85`）被拆成 `鉁`（`U+9241`）+ `?`。实测：同一段输出用默认解码首字符是 `37441`，指定 UTF-8 后是 `9989`（`U+2705`）。
+  现在给 `StandardOutputEncoding` / `StandardErrorEncoding` 显式指定 UTF-8；`dsh` CLI 分支则只在这一次调用期间把 `[Console]::OutputEncoding` 切到 65001，读完在 `finally` 里还原，不影响脚本自身的中文输出。
+- 版本号 `.4` → `.5`。
+
 ## [1.1.71-dsh0.2.1rc2-fix.4] — 2026-10-21
 
 基线同上。补一条网络兜底，其余同 `.3`。

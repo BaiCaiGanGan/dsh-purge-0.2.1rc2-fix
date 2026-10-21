@@ -12,7 +12,7 @@
 | 上游版本 | `1.1.71` |
 | 上游提交 | `6c1d638` |
 | 上游 release | [v1.1.71](https://github.com/YuJunZhiXue/dsh-purge/releases/tag/v1.1.71) |
-| 本分支版本 | `1.1.71-dsh0.2.1rc2-fix.4` |
+| 本分支版本 | `1.1.71-dsh0.2.1rc2-fix.5` |
 | 目标宿主 | DSH `0.2.1-rc.2`（`<DSH 安装目录>\resources\app`） |
 | 许可 | MIT（见 [LICENSE](LICENSE)）；上游代码著作权归原作者**小杨** |
 

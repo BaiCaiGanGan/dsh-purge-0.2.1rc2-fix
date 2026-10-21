@@ -6,7 +6,7 @@ This is the full reference: entry-point selection, verification, migration from 
 | Item | Value |
 |---|---|
 | Target host | DSH `0.2.1-rc.2` (both DSH Desktop and dsh CLI) |
-| Plugin version | `1.1.71-dsh0.2.1rc2-fix.4` |
+| Plugin version | `1.1.71-dsh0.2.1rc2-fix.5` |
 | Prerequisites | Node.js ≥18 (≥22 to avoid a console flash on Windows); GitHub reachable, or the Release tarball already downloaded |
 | Time required | About 2 minutes for the first install, plus one full DSH restart |
 | Related docs | [QUICKSTART.md](QUICKSTART.md) · [FIXES.en.md](FIXES.en.md) · [FORK-NOTES.md](FORK-NOTES.md) · [CHANGELOG.md](CHANGELOG.md) |
@@ -94,13 +94,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 No clone needed — one line fetches and runs it:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.4/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.5/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
 ```
 
 > **Why not `irm … | iex`**: `irm` decodes the script into an in-memory string using the system ANSI code page, which mangles the Chinese text inside it.
 > Download it to a file first (bytes unchanged, UTF-8 BOM preserved), then run that file. Append `-DryRun` to see the plan without changing anything.
 > If `raw.githubusercontent.com` is unreachable, swap in the jsDelivr mirror:
-> `https://cdn.jsdelivr.net/gh/Potato1008ypy/dsh-purge-0.2.1rc2-fix@v1.1.71-dsh0.2.1rc2-fix.4/install.ps1`
+> `https://cdn.jsdelivr.net/gh/Potato1008ypy/dsh-purge-0.2.1rc2-fix@v1.1.71-dsh0.2.1rc2-fix.5/install.ps1`
 > (replace the tag with `main` to follow the newest commit — no longer reproducible.)
 
 | Switch | Effect |
@@ -119,13 +119,13 @@ Start DSH afterwards.
 ## 2.1 Path A · `pnpm add` (most direct)
 
 ```bash
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.4"
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
 ```
 
 `pnpm add` writes `dependencies` only and does **not** register `dsh.profile.bundles`, so you must enable the plugin once on the Plugins page afterwards (section III).
 
 > **Do not use the Release tarball URL.** The host passes `CI=true` to pnpm, and that route writes a lockfile entry without `integrity`, which then freezes the whole profile (cause and recovery: 7.5).
-> On a restricted network, download the archive first and add the local file — pnpm writes a full checksum for it: `pnpm add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.4.tar.gz"`.
+> On a restricted network, download the archive first and add the local file — pnpm writes a full checksum for it: `pnpm add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.5.tar.gz"`.
 
 ## 2.2 Path B · Desktop command line (`desktop-cli.js`)
 
@@ -143,7 +143,7 @@ set ELECTRON_RUN_AS_NODE=1
 `%*` forwards quoted specs verbatim. Install:
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.4"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
 ```
 
 > The snippet above is `.bat` content. Lines starting with `::` are **batch comments** — pasting them into PowerShell raises `'::' is not recognized`.
@@ -152,8 +152,8 @@ dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.
 If GitHub will not fetch, **do not fall back to the Release tarball URL** — the host passes `CI=true` to pnpm, and that path writes a lockfile entry without `integrity`, which then freezes the whole profile (cause and recovery: 7.5). Use a local archive instead:
 
 ```bat
-:: download dsh-purge-dsh0.2.1rc2-fix.4.tar.gz first, then install that local path
-dsh-plugin.bat plugin --profile desktop add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.4.tar.gz"
+:: download dsh-purge-dsh0.2.1rc2-fix.5.tar.gz first, then install that local path
+dsh-plugin.bat plugin --profile desktop add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.5.tar.gz"
 ```
 
 pnpm writes a full checksum for a local archive (measured under `CI=true` too). If the host rejects a `file:` spec, use the offline directory route in 7.4.
@@ -182,7 +182,7 @@ If that check is what stalls on a China network, use the **local archive** route
 On plain DSH the ordinary CLI works directly. The profile is usually `web`; substitute whatever 1.2 showed:
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.4"
+dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
 ```
 
 Other differences are in appendix B.
@@ -501,7 +501,7 @@ Plain DSH and DSH Desktop are the same package, `@deepseek-ai/dsh@0.2.1-rc.2`, a
 **① No desktop lock, so the ordinary CLI works** (appendix A.1 does not apply):
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.4"
+dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
 ```
 
 **② The adapter switches to web automatically.** The plugin picks an adapter per surface:

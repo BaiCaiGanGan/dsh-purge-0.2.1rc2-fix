@@ -96,7 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 没有仓库也行，一行拉取并执行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.5/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.6/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
 ```
 
 自动探测 DSH 安装目录与运行模式，装包后写入 `dsh.profile.bundles`——**重启即生效，不用再点启用**，等于把上面第 1、2 步合成一步。DSH 未退出时脚本拒绝执行（否则会撞 `ERR_PNPM_EPERM`）。完整开关见 [INSTALL.md](INSTALL.md) 2.0。
@@ -104,7 +104,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.gi
 ### 2 · 通过 `pnpm add` 安装（最直接）
 
 ```bash
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6"
 ```
 
 `pnpm add` 只写 `dependencies`，不登记 `dsh.profile.bundles`。装完须到「插件」页手动启用，再重启 DSH。
@@ -115,7 +115,7 @@ pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
 
 ```bat
 :: dsh-plugin.bat 是 desktop-cli.js 的封装，见 INSTALL.md
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6"
 ```
 
 `dsh plugin --profile desktop` 会被直接拒绝（`profile "desktop" is managed exclusively by the Electron application`）；`<DSH 安装目录>\resources\app\lib\desktop-cli.js` 是唯一放行入口。这条路径会同时写入 `dependencies` 与 `dsh.profile.bundles`，需先退出 DSH。

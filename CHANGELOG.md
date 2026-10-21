@@ -3,6 +3,24 @@
 本文件记录本分支（`Potato1008ypy/dsh-purge-0.2.1rc2-fix`）的版本变更。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循上游 `1.1.71` 并附加适配后缀。
 
+## [1.1.71-dsh0.2.1rc2-fix.6] — 2026-10-21
+
+`install.ps1` 的六个缺陷，全部先复现再修。
+
+### 修正
+
+- **单 profile 被截成首字符**。`$profiles = Get-ProfileCandidates` 在只有一个 profile 时被 PowerShell 展开成字符串，`$profiles[0]` 取到的是第一个字符。实测：只有 `web` 时报 `profile：w（可选：web）`，随后 `$profileDir` 指向不存在的 `profiles\w`。改为 `@(Get-ProfileCandidates)`。
+- **备份太晚且不含锁文件**。备份原先在安装之后做，快照里已经含新装的依赖，回滚不回安装前状态；`pnpm-lock.yaml` 完全没有备份。现在安装前先快照 `package.json` / `pnpm-lock.yaml` / `pnpm-workspace.yaml` 到 `$DshHome\backups\install-<时间戳>\`，另保留一份仅用于「写 bundles 失败回滚」的临时快照，成功后删除。
+- **不解除 `desktopDeselectedBundles`**。原先只往 `bundles` 里加，若插件同时在禁用列表里，脚本报成功而插件仍被禁用（实测 `bundles: [..., "dsh-purge"]` 与 `deselected: ["dsh-purge"]` 并存）。新增 `Remove-DeselectedEntry` 文本级摘除并二次校验。
+- **忽略 `DSH_HOME`**。参数默认写死 `~\.dsh`，随后又覆盖子进程的 `DSH_HOME`，用自定义数据目录的用户会装到错误位置。改为 `-DshHome` > `DSH_HOME` > `~\.dsh`。
+- **兜底包落在 %TEMP%**。该路径会写进 `dependencies`，临时目录被清理后重装/恢复依赖找不到包。改为落在 `$DshHome\cache\plugins\`（不可写时退回 `%LOCALAPPDATA%\dsh-purge\cache`）。
+- **写入带 BOM 的 JSON**。PowerShell 5.1 的 `Set-Content -Encoding UTF8` 会写 BOM，宿主 `JSON.parse` 直接失败（实测首字符 U+FEFF、`JSON.parse: FAIL`）。改为按原文件是否带 BOM 精确写回，默认无 BOM。
+
+### 其他
+
+- `-SelfTest` 扩充：无 BOM 写回、禁用项摘除、幂等、缺键容错。
+- 版本号 `.5` → `.6`。
+
 ## [1.1.71-dsh0.2.1rc2-fix.5] — 2026-10-21
 
 ### 修正

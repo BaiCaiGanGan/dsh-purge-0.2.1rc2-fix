@@ -66,9 +66,9 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Spec = "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5",
+    [string]$Spec = "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6",
     [string]$PackageName = "dsh-purge",
-    [string]$DshHome = (Join-Path $env:USERPROFILE ".dsh"),
+    [string]$DshHome = "",
     [string]$DshInstall = "",
     [ValidateSet("auto", "desktop", "cli")]
     [string]$Mode = "auto",
@@ -83,11 +83,17 @@ param(
 $ErrorActionPreference = "Stop"
 $script:ExitCode = 0
 
+# DSH 数据目录：显式 -DshHome > 环境变量 DSH_HOME > 默认 ~\.dsh
+# （原先默认写死用户目录，会把 DSH_HOME 指向别处的用户装到错误位置）
+if (-not $DshHome) {
+    $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
+}
+
 # 本版本对应的发布产物：git 不通时的兜底来源（镜像按顺序尝试）
 $script:RepoSlug = "Potato1008ypy/dsh-purge-0.2.1rc2-fix"
-$script:ReleaseTag = "v1.1.71-dsh0.2.1rc2-fix.5"
-$script:AssetName = "dsh-purge-dsh0.2.1rc2-fix.5.tar.gz"
-$script:AssetVersion = "1.1.71-dsh0.2.1rc2-fix.5"
+$script:ReleaseTag = "v1.1.71-dsh0.2.1rc2-fix.6"
+$script:AssetName = "dsh-purge-dsh0.2.1rc2-fix.6.tar.gz"
+$script:AssetVersion = "1.1.71-dsh0.2.1rc2-fix.6"
 $script:AssetMirrors = @(
     "https://ghfast.top/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
     "https://gh-proxy.com/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
@@ -136,7 +142,53 @@ function Add-BundleEntry {
     $check = $updated | ConvertFrom-Json              # 写入后必须仍可解析
     if (-not ($check.dsh.profile.bundles -contains $Name)) { throw "写入 bundles 后校验失败" }
 
-    Set-Content -Path $Path -Value $updated -NoNewline -Encoding UTF8
+    # PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 BOM，宿主 JSON.parse 会直接失败。
+    # 按原文件是否带 BOM 精确写回。
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+    [System.IO.File]::WriteAllText($Path, $updated, (New-Object System.Text.UTF8Encoding($hasBom)))
+    return $true
+}
+
+# ─────────────────────────────────────────── 从 desktopDeselectedBundles 里摘掉（启用插件）
+function Remove-DeselectedEntry {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+    $raw = Get-Content -Path $Path -Raw
+    $nl = if ($raw -match "`r`n") { "`r`n" } else { "`n" }
+    $null = $raw | ConvertFrom-Json
+
+    $m = [regex]::Match($raw, '("desktopDeselectedBundles"\s*:\s*\[)([\s\S]*?)(\])')
+    if (-not $m.Success) { return $false }            # 没有这个键，等于没被禁用
+
+    $inner = $m.Groups[2].Value
+    $found = @([regex]::Matches($inner, '"((?:[^"\\]|\\.)*)"'))
+    $names = @($found | ForEach-Object { $_.Groups[1].Value })
+    if ($names -notcontains $Name) { return $false }  # 本来就不在禁用列表里
+
+    # 逐个删掉元素及其后的逗号，保留其余格式
+    $kept = @($found | Where-Object { $_.Groups[1].Value -ne $Name })
+    if ($kept.Count -eq 0) {
+        $newInner = $nl + "    "                      # 变成空数组
+    }
+    else {
+        $firstAt = $found[0].Index
+        $last = $found[$found.Count - 1]
+        $tailAt = $last.Index + $last.Length
+        $newInner = $nl + "      " + (($kept | ForEach-Object { $_.Value }) -join ("," + $nl + "      ")) + $nl + "    "
+    }
+
+    $updated = $raw.Substring(0, $m.Index) + $m.Groups[1].Value + $newInner + $m.Groups[3].Value +
+               $raw.Substring($m.Index + $m.Length)
+
+    $check = $updated | ConvertFrom-Json
+    if (@($check.dsh.desktopDeselectedBundles) -contains $Name) { throw "从 desktopDeselectedBundles 移除 $Name 后校验失败" }
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+    [System.IO.File]::WriteAllText($Path, $updated, (New-Object System.Text.UTF8Encoding($hasBom)))
     return $true
 }
 
@@ -262,7 +314,18 @@ function Test-PackageTarball([string]$path, [string]$expectedVersion) {
 
 function Get-ReleaseTarball {
     param([string[]]$Urls)
-    $dst = Join-Path $env:TEMP $script:AssetName
+    # 落到持久缓存，不能放 %TEMP%：这个路径会被写进 dependencies，
+    # 临时目录被清理后，重装或恢复依赖就找不到包了。
+    $cacheDir = Join-Path $DshHome "cache\plugins"
+    try {
+        if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null }
+    }
+    catch {
+        $cacheDir = Join-Path $env:LOCALAPPDATA "dsh-purge\cache"
+        if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null }
+        Warn "DSH 数据目录不可写，改用 $cacheDir"
+    }
+    $dst = Join-Path $cacheDir $script:AssetName
     $n = 0
     foreach ($u in $Urls) {
         if (-not $u) { continue }
@@ -339,6 +402,39 @@ if ($SelfTest) {
         exit 1
     }
     Ok "自检通过：写入、幂等、空数组、格式保留"
+
+    # ── 追加：BOM 与禁用项
+    $fails2 = @()
+
+    # 1) 写回的 JSON 不能带 BOM（宿主 JSON.parse 会失败）
+    $bomFile = Join-Path $env:TEMP ("bundle-selftest-bom-" + [guid]::NewGuid().ToString("N") + ".json")
+    $null = New-Item -ItemType File -Path $bomFile -Force
+    [System.IO.File]::WriteAllText($bomFile, '{"dsh":{"profile":{"bundles":[]},"desktopDeselectedBundles":["dsh-purge"]}}', (New-Object System.Text.UTF8Encoding($false)))
+    $null = Add-BundleEntry -Path $bomFile -Name "dsh-purge"
+    $bb = [System.IO.File]::ReadAllBytes($bomFile)
+    if ($bb.Length -ge 3 -and $bb[0] -eq 0xEF -and $bb[1] -eq 0xBB -and $bb[2] -eq 0xBF) { $fails2 += "写入后带上了 BOM" }
+    $txt = [System.IO.File]::ReadAllText($bomFile)
+    if ($txt.Length -gt 0 -and [int]$txt[0] -eq 0xFEFF) { $fails2 += "字符串开头是 U+FEFF" }
+
+    # 2) desktopDeselectedBundles 里的目标必须被摘掉
+    $removed = Remove-DeselectedEntry -Path $bomFile -Name "dsh-purge"
+    $p2 = [System.IO.File]::ReadAllText($bomFile) | ConvertFrom-Json
+    if (-not $removed) { $fails2 += "禁用项应被移除，实际返回 false" }
+    if (@($p2.dsh.desktopDeselectedBundles) -contains "dsh-purge") { $fails2 += "禁用项仍在列表里" }
+    if (-not ($p2.dsh.profile.bundles -contains "dsh-purge")) { $fails2 += "摘除禁用项时破坏了 bundles" }
+    if (Remove-DeselectedEntry -Path $bomFile -Name "dsh-purge") { $fails2 += "重复摘除应幂等返回 false" }
+
+    # 3) 没有该键时不应报错
+    $noKey = Join-Path $env:TEMP ("bundle-selftest-nokey-" + [guid]::NewGuid().ToString("N") + ".json")
+    [System.IO.File]::WriteAllText($noKey, '{"dsh":{"profile":{"bundles":["dsh-purge"]}}}', (New-Object System.Text.UTF8Encoding($false)))
+    if (Remove-DeselectedEntry -Path $noKey -Name "dsh-purge") { $fails2 += "缺 desktopDeselectedBundles 时应返回 false" }
+
+    Remove-Item $bomFile, $noKey -Force -ErrorAction SilentlyContinue
+    if ($fails2.Count -gt 0) {
+        $fails2 | ForEach-Object { Write-Host "  ✗ $_" -ForegroundColor Red }
+        exit 1
+    }
+    Ok "自检通过：无 BOM 写回、禁用项摘除、幂等"
     exit 0
 }
 
@@ -377,7 +473,9 @@ else {
 }
 
 # 3) profile
-$profiles = Get-ProfileCandidates
+# 必须 @() 包一层：只有一个 profile 时，PowerShell 会把单元素数组展开成字符串，
+# 之后 $profiles[0] 取到的是第一个字符（例如 "web" -> "w"）。
+$profiles = @(Get-ProfileCandidates)
 if ($profiles.Count -eq 0) {
     Die "在 $DshHome\profiles 下没有找到任何 profile（缺 package.json）" 4
 }
@@ -403,6 +501,24 @@ $tmpDirs = @(Get-ChildItem (Join-Path $profileDir "node_modules") -Directory -Fi
 if ($tmpDirs.Count -gt 0) {
     if ($DryRun) { Warn "发现 $($tmpDirs.Count) 个 _tmp_ 残留目录（将清理）" }
     else { $tmpDirs | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue; Ok "清理了 $($tmpDirs.Count) 个 _tmp_ 残留" }
+}
+
+# 5.5) 安装前快照：必须在 install 之前，否则快照里已经含新装的依赖，回不去安装前状态
+$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$snapDir = Join-Path $DshHome ("backups\install-" + $stamp)
+$snapFiles = @("package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml")
+$snapSaved = @()
+if ($DryRun) {
+    Warn "将在安装前快照到 $snapDir（$($snapFiles -join ' / ')）"
+}
+else {
+    New-Item -ItemType Directory -Force -Path $snapDir | Out-Null
+    foreach ($f in $snapFiles) {
+        $src = Join-Path $profileDir $f
+        if (Test-Path $src) { Copy-Item $src (Join-Path $snapDir $f) -Force; $snapSaved += $f }
+    }
+    if ($snapSaved.Count -gt 0) { Ok "安装前快照：$snapDir（$($snapSaved -join ' / ')）" }
+    else { Warn "安装前没有可快照的文件：$profileDir" }
 }
 
 # 6) 执行安装
@@ -476,21 +592,30 @@ if ($code -ne 0 -and -not $FromRelease -and (Test-GitSpec $Spec) -and (Test-GitR
 if ($code -ne 0) { Die "安装失败（退出码 $code）" 5 }
 Ok "包已安装"
 
-# 7) 写 bundles
+# 7) 写 bundles + 摘掉禁用项
 if ($NoBundle) {
     Warn "已跳过 bundles 写入（-NoBundle）：重启后需到「插件」页手动启用"
 }
 else {
-    $bak = "$pkgPath.bak-" + (Get-Date -Format "yyyyMMdd-HHmmss")
+    # 这份快照只用于「写 bundles 失败时回滚」，取的是装完之后的现场；
+    # 可恢复安装前状态的快照在上面（backups\install-*）。
+    $bak = "$pkgPath.snapshot-" + (Get-Date -Format "yyyyMMdd-HHmmss")
     Copy-Item $pkgPath $bak -Force
     try {
         $added = Add-BundleEntry -Path $pkgPath -Name $PackageName
-        if ($added) { Ok "已写入 dsh.profile.bundles（备份：$(Split-Path -Leaf $bak)）" }
+        if ($added) { Ok "已写入 dsh.profile.bundles" }
         else { Ok "dsh.profile.bundles 里已有 $PackageName，未改动" }
+
+        # 只登记 bundles 不够：它同时出现在 desktopDeselectedBundles 里时仍是禁用状态
+        $unDeselected = Remove-DeselectedEntry -Path $pkgPath -Name $PackageName
+        if ($unDeselected) { Ok "已从 desktopDeselectedBundles 移除 $PackageName（解除禁用）" }
     }
     catch {
         Copy-Item $bak $pkgPath -Force
-        Die "写入 bundles 失败并已回滚：$($_.Exception.Message)" 6
+        Die "写入 profile 配置失败并已回滚：$($_.Exception.Message)" 6
+    }
+    finally {
+        if (Test-Path $bak) { Remove-Item $bak -Force -ErrorAction SilentlyContinue }
     }
 }
 

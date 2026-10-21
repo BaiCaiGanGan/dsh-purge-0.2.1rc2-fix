@@ -6,7 +6,7 @@
 | 项 | 值 |
 |---|---|
 | 适用宿主 | DSH `0.2.1-rc.2`（DSH Desktop 与 dsh CLI） |
-| 插件版本 | `1.1.71-dsh0.2.1rc2-fix.5` |
+| 插件版本 | `1.1.71-dsh0.2.1rc2-fix.6` |
 | 前置条件 | Node.js ≥18（Windows 无闪窗需 ≥22）；可访问 GitHub，或已下载 Release 的 tarball |
 | 预计耗时 | 首次安装约 2 分钟，另需一次 DSH 完整重启 |
 | 相关文档 | [QUICKSTART.md](QUICKSTART.md) · [FIXES.md](FIXES.md) · [FORK-NOTES.md](FORK-NOTES.md) · [CHANGELOG.md](CHANGELOG.md) |
@@ -84,6 +84,15 @@ Copy-Item pnpm-lock.yaml "pnpm-lock.yaml.bak-$(Get-Date -Format yyyyMMdd-HHmmss)
 
 最后一步是关键：`dsh.profile.bundles` 一登记，插件重启后随 profile 自动加载，省掉手动到「插件」页点启用。
 
+脚本还会做四件事，都在装之前或装之后立即发生：
+
+| 行为 | 位置 / 说明 |
+|---|---|
+| **安装前快照** | `$DshHome\backups\install-<时间戳>\`，含 `package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`。取的是**装之前**的现场，可直接回滚 |
+| **解除禁用** | 若 `dsh.desktopDeselectedBundles` 里有本插件，一并摘掉；只写 `bundles` 而留着禁用项，重启后仍是禁用状态 |
+| **认 `DSH_HOME`** | 显式 `-DshHome` > 环境变量 `DSH_HOME` > 默认 `~\.dsh`；子进程沿用同一个值 |
+| **兜底包缓存** | `-FromRelease` / git 兜底下载的包放在 `$DshHome\cache\plugins\`，**不放临时目录**——这个路径会被写进 `dependencies`，临时目录一清就装不回来 |
+
 ```powershell
 # 先完全退出 DSH；脚本会检测，未退出则拒绝执行
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
@@ -92,13 +101,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 没有仓库也行，一行拉取并执行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.5/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.6/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
 ```
 
 > **为什么不是 `irm … | iex`**：`irm` 把脚本读进内存时按系统 ANSI 解码，脚本里的中文会变成乱码；
 > 必须先落成文件（字节不变、UTF-8 BOM 保留）再执行。想先看将做什么，把结尾换成 `-DryRun`。
 > `raw.githubusercontent.com` 不可达时，把地址换成 jsDelivr 镜像：
-> `https://cdn.jsdelivr.net/gh/Potato1008ypy/dsh-purge-0.2.1rc2-fix@v1.1.71-dsh0.2.1rc2-fix.5/install.ps1`
+> `https://cdn.jsdelivr.net/gh/Potato1008ypy/dsh-purge-0.2.1rc2-fix@v1.1.71-dsh0.2.1rc2-fix.6/install.ps1`
 > （把 tag 换成 `main` 即跟随最新提交，但版本不再可复现。）
 
 | 开关 | 作用 |
@@ -117,13 +126,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.gi
 ## 2.1 路径 A · `pnpm add`（最直接）
 
 ```bash
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6"
 ```
 
 `pnpm add` 只写 `dependencies`，**不登记** `dsh.profile.bundles`，所以装完必须到「插件」页手动启用一次（第 3 节）。
 
 > **不要用 Release 的 tarball 地址。** 宿主给 pnpm 带 `CI=true`，那条路径会写出缺 `integrity` 的锁文件条目，进而冻结整个 profile（成因与恢复见 7.5）。
-> 网络受限时先把压缩包下载到本地，再装本地文件——pnpm 会为本地压缩包写入完整校验值：`pnpm add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.5.tar.gz"`。
+> 网络受限时先把压缩包下载到本地，再装本地文件——pnpm 会为本地压缩包写入完整校验值：`pnpm add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.6.tar.gz"`。
 
 ## 2.2 路径 B · 桌面端命令行（`desktop-cli.js`）
 
@@ -141,7 +150,7 @@ set ELECTRON_RUN_AS_NODE=1
 `%*` 会原样转发带引号的 spec。装包：
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6"
 ```
 
 > 上面是 `.bat` 里的写法。`::` 开头的行是**批处理注释**，粘进 PowerShell 会报「术语 '::' 不会被识别」。
@@ -150,8 +159,8 @@ dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.
 GitHub 拉不动时，**不要改用 Release 的 tarball 地址**——宿主给 pnpm 带 `CI=true`，那条路径会写出缺 `integrity` 的锁文件条目，进而冻结整个 profile（成因与恢复见 7.5）。改用本地压缩包：
 
 ```bat
-:: 先把 dsh-purge-dsh0.2.1rc2-fix.5.tar.gz 下载到本地，再装这个本地路径
-dsh-plugin.bat plugin --profile desktop add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.5.tar.gz"
+:: 先把 dsh-purge-dsh0.2.1rc2-fix.6.tar.gz 下载到本地，再装这个本地路径
+dsh-plugin.bat plugin --profile desktop add "file:D:\downloads\dsh-purge-dsh0.2.1rc2-fix.6.tar.gz"
 ```
 
 pnpm 会为本地压缩包写入完整校验值（`CI=true` 下实测同样如此）。若宿主拒绝 `file:` 这种 spec，改用 7.4 的离线目录方式。
@@ -179,7 +188,7 @@ pnpm 会为本地压缩包写入完整校验值（`CI=true` 下实测同样如�
 原版 DSH 上普通 CLI 直接可用，profile 名通常是 `web`，按 1.2 的实际结果替换：
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
+dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6"
 ```
 
 其余差异见附录 B。
@@ -497,7 +506,7 @@ function rejectElectronProfile(program, profile) {
 **① 没有桌面锁，普通 CLI 直接可用**（附录 A.1 不适用）：
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.5"
+dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6"
 ```
 
 **② 适配器自动切到 web**。插件按 surface 选适配器：

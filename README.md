@@ -96,7 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 No clone needed — one line fetches and runs it:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.6/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.7/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
 ```
 
 It detects the DSH install directory and run mode, installs the package, then writes `dsh.profile.bundles` — **it takes effect on restart with no enable click**, collapsing steps 1 and 2 above into one. The script refuses to run while DSH is up (that path hits `ERR_PNPM_EPERM`). Full switch list: [INSTALL.en.md](INSTALL.en.md) 2.0.
@@ -104,7 +104,7 @@ It detects the DSH install directory and run mode, installs the package, then wr
 ### 2 · Installing with `pnpm add` (most direct)
 
 ```bash
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6"
+pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
 ```
 
 `pnpm add` writes `dependencies` only — it does not register `dsh.profile.bundles`. Afterwards you must enable it on the **Plugins page**, then restart DSH.
@@ -115,7 +115,7 @@ pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6"
 
 ```bat
 :: dsh-plugin.bat wraps desktop-cli.js; see INSTALL.en.md
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6"
+dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
 ```
 
 Calling `dsh plugin --profile desktop` directly is rejected (`profile "desktop" is managed exclusively by the Electron application`); `<DSH install dir>\resources\app\lib\desktop-cli.js` is the only gate that lets it through. That path writes **both** `dependencies` and `dsh.profile.bundles`; quit DSH first.

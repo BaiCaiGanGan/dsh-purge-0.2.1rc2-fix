@@ -66,7 +66,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Spec = "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.6",
+    [string]$Spec = "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7",
     [string]$PackageName = "dsh-purge",
     [string]$DshHome = "",
     [string]$DshInstall = "",
@@ -91,9 +91,9 @@ if (-not $DshHome) {
 
 # 本版本对应的发布产物：git 不通时的兜底来源（镜像按顺序尝试）
 $script:RepoSlug = "Potato1008ypy/dsh-purge-0.2.1rc2-fix"
-$script:ReleaseTag = "v1.1.71-dsh0.2.1rc2-fix.6"
-$script:AssetName = "dsh-purge-dsh0.2.1rc2-fix.6.tar.gz"
-$script:AssetVersion = "1.1.71-dsh0.2.1rc2-fix.6"
+$script:ReleaseTag = "v1.1.71-dsh0.2.1rc2-fix.7"
+$script:AssetName = "dsh-purge-dsh0.2.1rc2-fix.7.tar.gz"
+$script:AssetVersion = "1.1.71-dsh0.2.1rc2-fix.7"
 $script:AssetMirrors = @(
     "https://ghfast.top/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
     "https://gh-proxy.com/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",

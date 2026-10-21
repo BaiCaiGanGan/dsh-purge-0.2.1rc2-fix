@@ -3,6 +3,20 @@
 本文件记录本分支（`Potato1008ypy/dsh-purge-0.2.1rc2-fix`）的版本变更。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循上游 `1.1.71` 并附加适配后缀。
 
+## [1.1.71-dsh0.2.1rc2-fix.4] — 2026-10-21
+
+基线同上。补一条网络兜底，其余同 `.3`。
+
+### 新增
+
+- **git 不通时的自动兜底**：`install.ps1` 检测到 `ERR_PNPM_GIT_RESOLVE_FAILED`（或 `unable to access` / `Failed to connect` / 超时）后，自动下载本版本发布包并按本地 `file:` 重试一次。发布包按 `ghfast.top` → `gh-proxy.com` → 直连 顺序尝试，下载后校验包名与版本，通过才使用。
+- **`-FromRelease` / `-AssetUrl`**：直接走发布包安装，或指定任意可达地址。
+- 起因（实测）：目标机器上 `raw.githubusercontent.com` 可通、`github.com:443` 21 秒超时，`github:` 源因此装不上。`file:` 本地压缩包在 `CI=true` 下依然会写入完整 `integrity`，所以这条兜底不会踩 `ERR_PNPM_MISSING_TARBALL_INTEGRITY`。
+
+### 变更
+
+- 版本号 `.3` → `.4`。
+
 ## [1.1.71-dsh0.2.1rc2-fix.3] — 2026-10-21
 
 基线同上。本轮只改安装链路与文档，插件运行时逻辑未动。

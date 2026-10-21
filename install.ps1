@@ -15,6 +15,12 @@
     * DSH 在运行时默认不执行：pnpm 要重命名原生模块目录，而运行中的 DSH 占着它，必报 EPERM。
     * 改动前备份 package.json；写入后重新解析校验，失败即回滚。
 
+  网络兜底：
+    * git 连不上 github.com 时（报 ERR_PNPM_GIT_RESOLVE_FAILED / unable to access），
+      自动改为下载本版本发布包并按本地 file: 安装，再重试一次。
+      发布包走镜像（ghfast.top → gh-proxy.com → 直连），并校验包名与版本。
+    * 也可显式用 -FromRelease 直接走发布包。
+
 .PARAMETER Spec
   安装源。默认 GitHub 源（tag 锁定，可复现）。
 
@@ -39,6 +45,13 @@
 .PARAMETER SelfTest
   对内置样例跑写入逻辑的自检，不接触真实 profile。
 
+.PARAMETER FromRelease
+  跳过 GitHub 源，直接下载本版本的发布包（走镜像）并按本地文件安装。
+  git 到 github.com 不通时用这个。
+
+.PARAMETER AssetUrl
+  手动指定发布包地址（配合 -FromRelease）。
+
 .EXAMPLE
   .\install.ps1
 
@@ -47,10 +60,13 @@
 
 .EXAMPLE
   .\install.ps1 -DshInstall "D:\DSH Desktop"
+
+.EXAMPLE
+  .\install.ps1 -FromRelease
 #>
 [CmdletBinding()]
 param(
-    [string]$Spec = "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.3",
+    [string]$Spec = "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.4",
     [string]$PackageName = "dsh-purge",
     [string]$DshHome = (Join-Path $env:USERPROFILE ".dsh"),
     [string]$DshInstall = "",
@@ -59,11 +75,24 @@ param(
     [switch]$Force,
     [switch]$NoBundle,
     [switch]$DryRun,
-    [switch]$SelfTest
+    [switch]$SelfTest,
+    [switch]$FromRelease,
+    [string]$AssetUrl = ""
 )
 
 $ErrorActionPreference = "Stop"
 $script:ExitCode = 0
+
+# 本版本对应的发布产物：git 不通时的兜底来源（镜像按顺序尝试）
+$script:RepoSlug = "Potato1008ypy/dsh-purge-0.2.1rc2-fix"
+$script:ReleaseTag = "v1.1.71-dsh0.2.1rc2-fix.4"
+$script:AssetName = "dsh-purge-dsh0.2.1rc2-fix.4.tar.gz"
+$script:AssetVersion = "1.1.71-dsh0.2.1rc2-fix.4"
+$script:AssetMirrors = @(
+    "https://ghfast.top/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
+    "https://gh-proxy.com/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
+    "https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)"
+)
 
 function Say([string]$Text) { Write-Host $Text }
 function Ok([string]$Text) { Write-Host "  ✓ $Text" -ForegroundColor Green }
@@ -205,6 +234,51 @@ function Invoke-DesktopCli {
     }
 }
 
+# ─────────────────────────────────────────── 发布包兜底（git 不通时）
+function Test-GitSpec([string]$s) {
+    return ($s -match '^github:') -or ($s -match '^https?://github\.com/')
+}
+
+function Test-GitResolveFailure([string]$output) {
+    if (-not $output) { return $false }
+    return $output -match 'GIT_RESOLVE_FAILED|Failed to resolve git dependency|unable to access|Could not resolve host|Failed to connect|Connection timed out|Connection refused'
+}
+
+function Test-PackageTarball([string]$path, [string]$expectedVersion) {
+    $raw = & tar -xzOf $path "package/package.json" 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $raw) { return "包内没有 package/package.json" }
+    $text = (@($raw) -join "`n")
+    try { $p = $text | ConvertFrom-Json } catch { return "package.json 解析失败" }
+    if ($p.name -ne $PackageName) { return "包名不符：$($p.name)" }
+    if ($expectedVersion -and $p.version -ne $expectedVersion) { return "版本不符：$($p.version)" }
+    return $null
+}
+
+function Get-ReleaseTarball {
+    param([string[]]$Urls)
+    $dst = Join-Path $env:TEMP $script:AssetName
+    $n = 0
+    foreach ($u in $Urls) {
+        if (-not $u) { continue }
+        $n++
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Invoke-WebRequest -UseBasicParsing -TimeoutSec 60 -Uri $u -OutFile $dst
+        }
+        catch {
+            Warn "  源 $n 下载失败：$($_.Exception.Message.Split([char]10)[0])"
+            continue
+        }
+        $bad = Test-PackageTarball -path $dst -expectedVersion $script:AssetVersion
+        if ($bad) { Warn "  源 $n 内容不对（$bad）"; continue }
+        $hash = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash.ToLower()
+        $size = (Get-Item -LiteralPath $dst).Length
+        Ok "发布包就绪：$(Split-Path -Leaf $dst)（$size 字节，sha256 $($hash.Substring(0, 16))…）"
+        return $dst
+    }
+    return $null
+}
+
 # ─────────────────────────────────────────── 自检
 if ($SelfTest) {
     $tmp = Join-Path $env:TEMP ("bundle-selftest-" + [guid]::NewGuid().ToString("N") + ".json")
@@ -341,22 +415,53 @@ if ($DryRun) {
         Say "    dsh $($cliArgs -join ' ')"
     }
     if (-not $NoBundle) { Say "    然后写入 $pkgPath 的 dsh.profile.bundles（若尚未包含 $PackageName）" }
+    if ($FromRelease) { Say "    （-FromRelease：先下载 $($script:AssetName)，再按 file: 安装）" }
     Say ""
     Say "未改动任何文件。"
     exit 0
 }
 
+function Invoke-Install([string]$spec) {
+    $a = @("plugin", "--profile", $profileName, "add", $spec)
+    if ($resolvedMode -eq "desktop") {
+        $res = Invoke-DesktopCli -Dir $installDir -CliArgs $a
+        return [pscustomobject]@{ Code = $res.Code; Output = $res.Output }
+    }
+    $out = (& dsh @a 2>&1 | Out-String)
+    return [pscustomobject]@{ Code = $LASTEXITCODE; Output = $out }
+}
+
 Say ""
 Say "安装中……"
-if ($resolvedMode -eq "desktop") {
-    $r = Invoke-DesktopCli -Dir $installDir -CliArgs $cliArgs
-    if ($r.Output) { Write-Host $r.Output.TrimEnd() }
-    $code = $r.Code
+
+if ($FromRelease) {
+    $tgz = Get-ReleaseTarball -Urls (@($AssetUrl) + $script:AssetMirrors)
+    if (-not $tgz) { Die "发布包下载失败（镜像均不可达）；可用 -AssetUrl 指定可达地址" 7 }
+    $Spec = "file:" + ($tgz -replace '\\', '/')
 }
-else {
-    & dsh @cliArgs
-    $code = $LASTEXITCODE
+
+$r = Invoke-Install $Spec
+if ($r.Output) { Write-Host $r.Output.TrimEnd() }
+$code = $r.Code
+
+# git 连不上 github.com（国内网络很常见）→ 自动换发布包重试一次
+if ($code -ne 0 -and -not $FromRelease -and (Test-GitSpec $Spec) -and (Test-GitResolveFailure $r.Output)) {
+    Say ""
+    Warn "git 连不上 github.com，改用发布包本地安装（file: 会写入完整 integrity）……"
+    $tgz = Get-ReleaseTarball -Urls (@($AssetUrl) + $script:AssetMirrors)
+    if ($tgz) {
+        $Spec = "file:" + ($tgz -replace '\\', '/')
+        Say ""
+        Say "重试安装（本地包）……"
+        $r = Invoke-Install $Spec
+        if ($r.Output) { Write-Host $r.Output.TrimEnd() }
+        $code = $r.Code
+    }
+    else {
+        Warn "发布包也取不到；请在能上网的机器下载 $($script:AssetName)，再用 -Spec `"file:<路径>`" 安装"
+    }
 }
+
 if ($code -ne 0) { Die "安装失败（退出码 $code）" 5 }
 Ok "包已安装"
 

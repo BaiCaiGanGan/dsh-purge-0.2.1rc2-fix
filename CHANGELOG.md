@@ -25,6 +25,9 @@
   再挂 `hangOperatorPrompt()`（tier-2 才有），最后统一到 `refreshHungOperator()` 的返回处
   与四重兜底的 `norm()` —— host 侧 tier-1 读的正是 `refreshHungOperator().text`。
   只作用于注入链，不改用户文件；幂等（同一份正文只追加一次），`DSH_PURGE_ANCHOR=0` 可关闭。
+- **文档补上 "clone 后直接跑脚本" 的主路径**：README / README.zh-CN / QUICKSTART 的安装段
+  现在给出 `git clone → cd → install.ps1`（含 `-Apply` / `-DryRun`），并说明在 clone 里执行时
+  走本地 `npm pack`、宿主没有 CLI 入口时自动切 direct 模式。
 - **一键安装在 0.2.1-rc.2 上跑不通**：脚本要求 `resources\app\lib\desktop-cli.js` 或 `dsh` 命令，
   而官方版把 CLI 收进了 `app.asar` —— 两者都没有，脚本直接 `Die`（退出码 4）。三处修正：
   ① 安装源改为"在 clone 目录里执行就用 `npm pack` 本地打包"，不再依赖网络；

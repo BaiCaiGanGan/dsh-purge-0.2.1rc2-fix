@@ -88,12 +88,20 @@ In recommended order — pick one of the four:
 
 ### 1 · One-click script (Windows, least work)
 
+**From a clone** (recommended — nothing is downloaded at install time):
+
 ```powershell
 # fully quit DSH first
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+git clone https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix.git
+cd dsh-purge-0.2.1rc2-fix
+powershell -ExecutionPolicy Bypass -File .\install.ps1            # install
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Apply     # install + apply + verify
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -DryRun    # print the plan, change nothing
 ```
 
-No clone needed — one line fetches and runs it:
+Run from inside a clone, the installer packages the working tree with `npm pack` — so what you cloned is exactly what gets installed, and no network is needed. On hosts whose CLI lives inside `app.asar` (official `0.2.1-rc.2`), it switches to **direct mode**: unpack into `profiles/<profile>/node_modules/dsh-purge`, rewrite `dependencies.dsh-purge` to `file:<tgz>`, and back up the previous copy to `~/.dsh/backups/`.
+
+**Without a clone** — one line fetches and runs it:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/main/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"

@@ -86,8 +86,14 @@ $p = Get-Content "$env:USERPROFILE\.dsh\profiles\desktop\package.json" -Raw | Co
 
 最省事是一键脚本：自动探测安装目录、自动写 `bundles`，重启即生效。**先完全退出 DSH**。
 
+从 clone 跑（推荐，安装阶段不联网）：
+
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+git clone https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix.git
+cd dsh-purge-0.2.1rc2-fix
+powershell -ExecutionPolicy Bypass -File .\install.ps1            # 只装
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Apply     # 装 + 应用 + 验证
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -DryRun    # 只打印计划
 ```
 
 没有仓库就一行拉取执行（`irm … | iex` 不行，中文会乱码；必须先落盘）：

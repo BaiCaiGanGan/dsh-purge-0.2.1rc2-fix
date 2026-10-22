@@ -88,6 +88,21 @@ FIX-01 至 FIX-06 由本仓库定位。FIX-07 至 FIX-09 在与 [`evilevil/dsh-p
 
 ### 1 · 一键脚本（Windows，最省事）
 
+**从 clone 运行**（推荐：安装阶段不联网）：
+
+```powershell
+# 先完全退出 DSH
+git clone https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix.git
+cd dsh-purge-0.2.1rc2-fix
+powershell -ExecutionPolicy Bypass -File .\install.ps1            # 只装
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Apply     # 装 + 应用 + 验证
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -DryRun    # 只打印计划，不改任何文件
+```
+
+在 clone 目录里执行时，脚本用 `npm pack` 打包当前工作区 —— 装进去的就是你 clone 到的那份，且不需要网络。如果宿主的 CLI 被封在 `app.asar` 里（官方 `0.2.1-rc.2`），它会自动切到**直接落地模式**：解包到 `profiles/<profile>/node_modules/dsh-purge`，把 `dependencies.dsh-purge` 改成 `file:<tgz>`，旧版本备份到 `~/.dsh/backups/`。
+
+**没有仓库时**——一行拉取执行：
+
 ```powershell
 # 先完全退出 DSH
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1

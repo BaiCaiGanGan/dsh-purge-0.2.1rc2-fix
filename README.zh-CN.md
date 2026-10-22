@@ -143,7 +143,16 @@ cd <DSH_HOME>/profiles/desktop/node_modules/dsh-purge
 node test/fixes.test.mjs          # 等价于 npm test
 ```
 
-预期输出末行 `全部通过：22 passed, 0 failed`，退出码 `0`。该测试覆盖 FIX-07 至 FIX-09，不需要网络，也不需要宿主的 `yaml`。
+预期输出末行 `全部通过：60 passed, 0 failed`，退出码 `0`。不需要网络，也不需要宿主的 `yaml`。
+
+要看补丁是不是**真的在跑**（而不只是写到了磁盘）：
+
+```powershell
+# 在插件目录里，或任意 clone
+pwsh -File scripts/apply-and-verify.ps1 -VerifyOnly
+```
+
+输出一行结论：`EFFECTIVE = YES/NO`、补丁计数（`applied/pending/drifted/failed/n-a`）、`app.asar` 是否仍被封着、注入来源。去掉 `-VerifyOnly` 还会停宿主、把 `app.asar` 改名挪走（不删）再重启——效果等同面板上的「应用」，但可以在宿主外跑。`-InstallRoot <目录>` 可覆盖自动探测。
 
 ## 文档索引
 

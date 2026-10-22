@@ -25,6 +25,10 @@
   再挂 `hangOperatorPrompt()`（tier-2 才有），最后统一到 `refreshHungOperator()` 的返回处
   与四重兜底的 `norm()` —— host 侧 tier-1 读的正是 `refreshHungOperator().text`。
   只作用于注入链，不改用户文件；幂等（同一份正文只追加一次），`DSH_PURGE_ANCHOR=0` 可关闭。
+- **`scripts/apply-and-verify.ps1`**：把"应用 + 挪归档 + 重启 + 判定"做成入库脚本（自动探测安装目录，
+  `-VerifyOnly` 只查、`-InstallRoot` 指定路径、`-Profile` 选 desktop/web）。判定读 `gatherState()` 的
+  `effective` / `patches_drifted` / `override_status`，不再靠人眼看数字。桌面上的快捷脚本改为薄封装，
+  真正的逻辑随插件走，重装/升级后不会失效。
 - 测试：`test/drift-classify.test.mjs`（16 项）、`test/override-status.test.mjs`（5 项）、
   `test/closing-anchor.test.mjs`（6 项）。`npm test` 现为 58 项。
 

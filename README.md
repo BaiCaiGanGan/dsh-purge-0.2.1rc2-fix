@@ -143,7 +143,16 @@ cd <DSH_HOME>/profiles/desktop/node_modules/dsh-purge
 node test/fixes.test.mjs          # same as npm test
 ```
 
-Expected last line `全部通过：22 passed, 0 failed`, exit code `0`. The test covers FIX-07 through FIX-09 and needs neither the network nor the host's `yaml`.
+Expected last line `全部通过：60 passed, 0 failed`, exit code `0`. The suite needs neither the network nor the host's `yaml`.
+
+To check whether the patches are actually **running** (not just written to disk):
+
+```powershell
+# inside the plugin directory, or from a clone
+pwsh -File scripts/apply-and-verify.ps1 -VerifyOnly
+```
+
+It prints one JSON-backed verdict: `EFFECTIVE = YES/NO`, patch tally (`applied/pending/drifted/failed/n-a`), whether `app.asar` is still sealed, and the override source. Without `-VerifyOnly` it also stops the host, renames `app.asar` aside (never deletes it) and relaunches — exactly what the plugin's **Apply** button does, usable from outside the host. `-InstallRoot <dir>` overrides auto-detection.
 
 ## Documentation
 

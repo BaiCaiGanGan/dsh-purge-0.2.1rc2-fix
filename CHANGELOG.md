@@ -25,6 +25,13 @@
   再挂 `hangOperatorPrompt()`（tier-2 才有），最后统一到 `refreshHungOperator()` 的返回处
   与四重兜底的 `norm()` —— host 侧 tier-1 读的正是 `refreshHungOperator().text`。
   只作用于注入链，不改用户文件；幂等（同一份正文只追加一次），`DSH_PURGE_ANCHOR=0` 可关闭。
+- **一键安装在 0.2.1-rc.2 上跑不通**：脚本要求 `resources\app\lib\desktop-cli.js` 或 `dsh` 命令，
+  而官方版把 CLI 收进了 `app.asar` —— 两者都没有，脚本直接 `Die`（退出码 4）。三处修正：
+  ① 安装源改为"在 clone 目录里执行就用 `npm pack` 本地打包"，不再依赖网络；
+  ② 新增 `direct` 模式：没有 CLI 入口时自动解包到 profile 的 `node_modules`，并把
+  `dependencies.dsh-purge` 写成 `file:<tgz>`（有旧版本先备份）；③ `Find-InstallDir` 补上
+  `DeepSeek Harness` 的进程名与安装路径（原来只认 `DSH Desktop`）。
+  新增 `-Apply`：装完可直接串上 `scripts/apply-and-verify.ps1`，装 + 生效一次完成。
 - **一键安装脚本改指本仓库**：`install.ps1` 的默认 `-Spec` 原本是
   `github:Potato1008ypy/...#v1.1.71-dsh0.2.1rc2-fix.7`，照默认跑装到的是上游那份（不含本分支修复）；
   `RepoSlug` / `ReleaseTag` / 镜像也指上游。现在默认 `github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main`，

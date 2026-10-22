@@ -59,6 +59,12 @@
   .\install.ps1 -DryRun
 
 .EXAMPLE
+  git clone https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix.git
+  cd dsh-purge-0.2.1rc2-fix
+  powershell -ExecutionPolicy Bypass -File .\install.ps1
+  # 在 clone 目录里执行 = 用本地打包安装（不依赖网络）；加 -Apply 会顺手应用并验证。
+
+.EXAMPLE
   .\install.ps1 -DshInstall "D:\DSH Desktop"
 
 .EXAMPLE
@@ -66,7 +72,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Spec = "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main",
+    # 留空 = 自动：在 clone 目录里执行就用本地打包，否则用 GitHub 源。
+    [string]$Spec = "",
     [string]$PackageName = "dsh-purge",
     [string]$DshHome = "",
     [string]$DshInstall = "",
@@ -77,6 +84,7 @@ param(
     [switch]$DryRun,
     [switch]$SelfTest,
     [switch]$FromRelease,
+    [switch]$Apply,
     [string]$AssetUrl = ""
 )
 
@@ -204,6 +212,49 @@ function Update-ProfileConfig {
     return [pscustomobject]@{ BundleAdded = $bundleAdded; DeselectedRemoved = $removedDeselect; Changed = $true }
 }
 
+# ─────────────────────────────────────────── 无 CLI 入口时的「直接落地」安装
+# 0.2.1-rc.2 的官方桌面版把 CLI 收进了 app.asar：没有 dsh 命令，
+# resources\app\lib\desktop-cli.js 也不存在。此时 pnpm add 那条路走不通，
+# 但插件本质只是"profile\node_modules 下的一个包 + 两条登记"，可以直接解包落地。
+function Install-Direct([string]$tgzPath, [string]$ProfileDir) {
+    if (-not (Test-Path $tgzPath)) { throw "安装包不存在：$tgzPath" }
+    $target = Join-Path $ProfileDir ("node_modules\" + $PackageName)
+    $backup = $null
+    if (Test-Path $target) {
+        $backup = Join-Path $DshHome ("backups\" + $PackageName + "-" + (Get-Date -Format "yyyyMMdd-HHmmss") + "-pre-direct")
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $backup) | Out-Null
+        Copy-Item $target $backup -Recurse -Force
+    }
+    $tmp = Join-Path $env:TEMP ("purge-unpack-" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+    try {
+        & tar -xzf $tgzPath -C $tmp
+        if ($LASTEXITCODE -ne 0) { throw "解包失败（tar 退出码 $LASTEXITCODE）" }
+        $src = Join-Path $tmp "package"
+        if (-not (Test-Path (Join-Path $src "package.json"))) { throw "包结构异常：缺少 package/package.json" }
+        if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+        Move-Item $src $target
+    }
+    finally {
+        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    return $backup
+}
+
+# 把 dependencies.<Name> 写成指定值（直接落地模式下是 file:<tgz>）。
+function Set-ProfileDependency([string]$Path, [string]$Name, [string]$Value) {
+    $raw = Read-JsonText $Path
+    $obj = $raw | ConvertFrom-Json
+    if (-not $obj.PSObject.Properties["dependencies"] -or -not $obj.dependencies) {
+        $obj | Add-Member -NotePropertyName dependencies -NotePropertyValue ([pscustomobject]@{}) -Force
+    }
+    $prop = $obj.dependencies.PSObject.Properties[$Name]
+    if ($prop) { $prop.Value = $Value }
+    else { $obj.dependencies | Add-Member -NotePropertyName $Name -NotePropertyValue $Value }
+    $json = $obj | ConvertTo-Json -Depth 100
+    Write-JsonText $Path $json
+}
 # ─────────────────────────────────────────── 安装目录探测
 function Test-DshDir([string]$Dir) {
     if (-not $Dir) { return $false }
@@ -214,11 +265,16 @@ function Find-InstallDir([string]$Hint) {
     $candidates = New-Object System.Collections.Generic.List[string]
     if ($Hint) { $candidates.Add($Hint) }
 
-    foreach ($p in (Get-Process "DSH Desktop" -ErrorAction SilentlyContinue)) {
-        try { if ($p.Path) { $candidates.Add((Split-Path -Parent $p.Path)) } } catch { }
+    # 进程名在官方新版本里叫 "DeepSeek Harness"，老版/第三方才叫 "DSH Desktop"。
+    foreach ($procName in @("DeepSeek Harness", "DSH Desktop")) {
+        foreach ($p in (Get-Process $procName -ErrorAction SilentlyContinue)) {
+            try { if ($p.Path) { $candidates.Add((Split-Path -Parent $p.Path)) } } catch { }
+        }
     }
 
+    $candidates.Add((Join-Path $env:LOCALAPPDATA "Programs\DeepSeek Harness"))
     $candidates.Add((Join-Path $env:LOCALAPPDATA "Programs\DSH Desktop"))
+    $candidates.Add((Join-Path $env:ProgramFiles "DeepSeek Harness"))
     $candidates.Add((Join-Path $env:ProgramFiles "DSH Desktop"))
     if (${env:ProgramW6432}) { $candidates.Add((Join-Path ${env:ProgramW6432} "DSH Desktop")) }
     $candidates.Add("D:\DSH Desktop")
@@ -236,7 +292,7 @@ function Find-InstallDir([string]$Hint) {
     )
     foreach ($r in $roots) {
         foreach ($item in (Get-ItemProperty $r -ErrorAction SilentlyContinue)) {
-            if ($item.DisplayName -notlike "*DSH*") { continue }
+            if ($item.DisplayName -notlike "*DSH*" -and $item.DisplayName -notlike "*DeepSeek*") { continue }
             if ($item.InstallLocation -and (Test-DshDir $item.InstallLocation)) {
                 return (Resolve-Path $item.InstallLocation).Path
             }
@@ -472,6 +528,34 @@ Say ""
 Say "dsh-purge 一键安装"
 Say "═══════════════════"
 
+# 0) 安装源：在 clone 目录里执行就用本地打包（不依赖网络）；
+#    只下载了 install.ps1 单文件时，回退到 GitHub 源。
+if (-not $Spec) {
+    $localPkg = Join-Path $PSScriptRoot "package.json"
+    if (Test-Path $localPkg) {
+        $packDir = Join-Path $DshHome "cache\plugins"
+        New-Item -ItemType Directory -Force -Path $packDir | Out-Null
+        Say "本地包：从 $PSScriptRoot 打包（npm pack）……"
+        # 必须在 clone 目录里打包：npm pack 读的是当前工作目录的 package.json。
+        Push-Location $PSScriptRoot
+        try { $null = & npm pack --pack-destination $packDir --silent 2>&1 }
+        finally { Pop-Location }
+        $tgzLocal = Get-ChildItem $packDir -Filter "dsh-purge-*.tgz" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($tgzLocal) {
+            $Spec = "file:" + ($tgzLocal.FullName -replace '\\', '/')
+            Ok "已打包：$($tgzLocal.Name)"
+        }
+        else {
+            Warn "本地打包失败（npm pack），回退到 GitHub 源"
+            $Spec = "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
+        }
+    }
+    else {
+        $Spec = "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
+    }
+}
+
 # 1) spec 安全检查
 if ($Spec -match '^https?://' -and $Spec -match '\.(tgz|tar\.gz|tar)$') {
     Die "拒绝远端 tarball 地址：宿主给 pnpm 带 CI=true，会写出缺 integrity 的锁文件条目并冻结整个 profile（见 INSTALL.md 7.5）。请改用 github: 源或本地 file: 压缩包。" 2
@@ -501,7 +585,7 @@ $resolvedMode = $Mode
 if ($resolvedMode -eq "auto") {
     if (Test-DesktopCli $installDir) { $resolvedMode = "desktop" }
     elseif (Get-Command dsh -ErrorAction SilentlyContinue) { $resolvedMode = "cli" }
-    else { $resolvedMode = "cli" }
+    else { $resolvedMode = "direct" }
 }
 
 if ($resolvedMode -eq "desktop") {
@@ -511,11 +595,14 @@ if ($resolvedMode -eq "desktop") {
     Ok "模式：桌面端"
     Ok "安装目录：$installDir"
 }
-else {
+elseif ($resolvedMode -eq "cli") {
     if (-not (Get-Command dsh -ErrorAction SilentlyContinue)) {
-        Die "找不到 dsh 命令；若这是桌面版，请确认安装目录或用 -DshInstall 指定。" 4
+        Die "找不到 dsh 命令；若这是桌面版，请用默认的 direct 模式（不加 -Mode cli）。" 4
     }
     Ok "模式：原版 CLI（dsh）"
+}
+else {
+    Ok "模式：直接落地（宿主没有 CLI 入口，解包到 profile）"
 }
 
 # 3) profile
@@ -526,7 +613,8 @@ if ($profiles.Count -eq 0) {
     Die "在 $DshHome\profiles 下没有找到任何 profile（缺 package.json）" 4
 }
 $profileName = $null
-if ($profiles -contains "desktop" -and $resolvedMode -eq "desktop") { $profileName = "desktop" }
+# direct 模式 = 有桌面宿主但没有 CLI 入口，仍然装 desktop profile。
+if ($profiles -contains "desktop" -and ($resolvedMode -eq "desktop" -or $resolvedMode -eq "direct")) { $profileName = "desktop" }
 elseif ($profiles.Count -eq 1) { $profileName = $profiles[0] }
 elseif ($profiles -contains "web") { $profileName = "web" }
 else { $profileName = $profiles[0] }
@@ -579,6 +667,10 @@ if ($DryRun) {
     if ($resolvedMode -eq "desktop") {
         Say "    `"$installDir\DSH Desktop.exe`" `"$installDir\resources\app\lib\desktop-cli.js`" $($cliArgs -join ' ')"
     }
+    elseif ($resolvedMode -eq "direct") {
+        Say "    tar -xzf <tgz> -C tmp ; 移动到 $profileDir\node_modules\$PackageName"
+        Say "    并把 $pkgPath 的 dependencies.$PackageName 写成 file:<tgz>"
+    }
     else {
         Say "    dsh $($cliArgs -join ' ')"
     }
@@ -616,12 +708,23 @@ if ($FromRelease) {
     $Spec = "file:" + ($tgz -replace '\\', '/')
 }
 
-$r = Invoke-Install $Spec
-if ($r.Output) { Write-Host $r.Output.TrimEnd() }
-$code = $r.Code
+if ($resolvedMode -eq "direct") {
+    $tgzPath = $Spec -replace '^file:', ''
+    Say "解包到 profile……"
+    $backup = Install-Direct -tgzPath $tgzPath -ProfileDir $profileDir
+    if ($backup) { Ok "旧版本已备份：$backup" }
+    Set-ProfileDependency -Path $pkgPath -Name $PackageName -Value $Spec
+    Ok "已写入 dependencies.$PackageName = $Spec"
+    $code = 0
+}
+else {
+    $r = Invoke-Install $Spec
+    if ($r.Output) { Write-Host $r.Output.TrimEnd() }
+    $code = $r.Code
+}
 
 # git 连不上 github.com（国内网络很常见）→ 自动换发布包重试一次
-if ($code -ne 0 -and -not $FromRelease -and (Test-GitSpec $Spec) -and (Test-GitResolveFailure $r.Output)) {
+if ($code -ne 0 -and $resolvedMode -ne "direct" -and -not $FromRelease -and (Test-GitSpec $Spec) -and (Test-GitResolveFailure $r.Output)) {
     Say ""
     Warn "git 连不上 github.com，改用发布包本地安装（file: 会写入完整 integrity）……"
     if ($script:AssetMirrors.Count -eq 0 -and -not $AssetUrl) {
@@ -699,9 +802,32 @@ else {
     $script:ExitCode = 6
 }
 
+# 9) 可选：装完立刻应用并验证（会短暂关闭 DSH）
+if ($Apply -and $script:ExitCode -eq 0) {
+    $applyScript = Join-Path $modPath "scripts\apply-and-verify.ps1"
+    if (Test-Path $applyScript) {
+        Say ""
+        Say "应用并验证（会短暂关闭 DSH）……"
+        & $applyScript
+        if ($LASTEXITCODE -ne 0) {
+            Warn "应用未成功：请按上面的输出处理，或单独运行 $applyScript -VerifyOnly 复核"
+            $script:ExitCode = 1
+        }
+        else {
+            Ok "已应用并验证通过"
+        }
+    }
+    else {
+        Warn "找不到 $applyScript，跳过 -Apply（插件版本可能过旧）"
+    }
+}
+
 Say ""
 if ($script:ExitCode -eq 0) {
     Say "下一步：启动 DSH —— 插件会随 profile 自动加载，无需再到「插件」页点启用。"
-    Say "初次加载后，在会话标题旁点 dsh-purge → 清洗 → 应用。"
+    if (-not $Apply) {
+        Say "要让补丁真正生效（挪走 app.asar），再运行："
+        Say "  pwsh -File `"$modPath\scripts\apply-and-verify.ps1`""
+    }
 }
 exit $script:ExitCode

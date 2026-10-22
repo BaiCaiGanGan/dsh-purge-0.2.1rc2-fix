@@ -25,6 +25,12 @@
   再挂 `hangOperatorPrompt()`（tier-2 才有），最后统一到 `refreshHungOperator()` 的返回处
   与四重兜底的 `norm()` —— host 侧 tier-1 读的正是 `refreshHungOperator().text`。
   只作用于注入链，不改用户文件；幂等（同一份正文只追加一次），`DSH_PURGE_ANCHOR=0` 可关闭。
+- **一键安装脚本改指本仓库**：`install.ps1` 的默认 `-Spec` 原本是
+  `github:Potato1008ypy/...#v1.1.71-dsh0.2.1rc2-fix.7`，照默认跑装到的是上游那份（不含本分支修复）；
+  `RepoSlug` / `ReleaseTag` / 镜像也指上游。现在默认 `github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main`，
+  并新增 `$script:HasRelease = $false`：本分支没发 Release 时，`-FromRelease` 与断网兜底会直接给出
+  可执行的提示，而不是对着三个 404 重试。README / README.zh-CN / INSTALL(.en) / QUICKSTART 里的
+  安装命令与 `install.ps1` 地址同步改到本仓库（tag pin 改成 `#main`）。
 - **`scripts/apply-and-verify.ps1`**：把"应用 + 挪归档 + 重启 + 判定"做成入库脚本（自动探测安装目录，
   `-VerifyOnly` 只查、`-InstallRoot` 指定路径、`-Profile` 选 desktop/web）。判定读 `gatherState()` 的
   `effective` / `patches_drifted` / `override_status`，不再靠人眼看数字。桌面上的快捷脚本改为薄封装，

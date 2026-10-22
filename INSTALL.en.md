@@ -104,13 +104,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 No clone needed — one line fetches and runs it:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.7/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/main/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
 ```
 
 > **Why not `irm … | iex`**: `irm` decodes the script into an in-memory string using the system ANSI code page, which mangles the Chinese text inside it.
 > Download it to a file first (bytes unchanged, UTF-8 BOM preserved), then run that file. Append `-DryRun` to see the plan without changing anything.
 > If `raw.githubusercontent.com` is unreachable, swap in the jsDelivr mirror:
-> `https://cdn.jsdelivr.net/gh/Potato1008ypy/dsh-purge-0.2.1rc2-fix@v1.1.71-dsh0.2.1rc2-fix.7/install.ps1`
+> `https://cdn.jsdelivr.net/gh/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix@main/install.ps1`
 > (replace the tag with `main` to follow the newest commit — no longer reproducible.)
 
 | Switch | Effect |
@@ -129,7 +129,7 @@ Start DSH afterwards.
 ## 2.1 Path A · `pnpm add` (most direct)
 
 ```bash
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+pnpm add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 `pnpm add` writes `dependencies` only and does **not** register `dsh.profile.bundles`, so you must enable the plugin once on the Plugins page afterwards (section III).
@@ -153,7 +153,7 @@ set ELECTRON_RUN_AS_NODE=1
 `%*` forwards quoted specs verbatim. Install:
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+dsh-plugin.bat plugin --profile desktop add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 > The snippet above is `.bat` content. Lines starting with `::` are **batch comments** — pasting them into PowerShell raises `'::' is not recognized`.
@@ -192,7 +192,7 @@ If that check is what stalls on a China network, use the **local archive** route
 On plain DSH the ordinary CLI works directly. The profile is usually `web`; substitute whatever 1.2 showed:
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+dsh plugin --profile web add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 Other differences are in appendix B.
@@ -511,7 +511,7 @@ Plain DSH and DSH Desktop are the same package, `@deepseek-ai/dsh@0.2.1-rc.2`, a
 **① No desktop lock, so the ordinary CLI works** (appendix A.1 does not apply):
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+dsh plugin --profile web add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 **② The adapter switches to web automatically.** The plugin picks an adapter per surface:

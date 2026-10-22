@@ -102,13 +102,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 没有仓库也行，一行拉取并执行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.7/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/main/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
 ```
 
 > **为什么不是 `irm … | iex`**：`irm` 把脚本读进内存时按系统 ANSI 解码，脚本里的中文会变成乱码；
 > 必须先落成文件（字节不变、UTF-8 BOM 保留）再执行。想先看将做什么，把结尾换成 `-DryRun`。
 > `raw.githubusercontent.com` 不可达时，把地址换成 jsDelivr 镜像：
-> `https://cdn.jsdelivr.net/gh/Potato1008ypy/dsh-purge-0.2.1rc2-fix@v1.1.71-dsh0.2.1rc2-fix.7/install.ps1`
+> `https://cdn.jsdelivr.net/gh/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix@main/install.ps1`
 > （把 tag 换成 `main` 即跟随最新提交，但版本不再可复现。）
 
 | 开关 | 作用 |
@@ -127,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.gi
 ## 2.1 路径 A · `pnpm add`（最直接）
 
 ```bash
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+pnpm add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 `pnpm add` 只写 `dependencies`，**不登记** `dsh.profile.bundles`，所以装完必须到「插件」页手动启用一次（第 3 节）。
@@ -151,7 +151,7 @@ set ELECTRON_RUN_AS_NODE=1
 `%*` 会原样转发带引号的 spec。装包：
 
 ```bat
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+dsh-plugin.bat plugin --profile desktop add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 > 上面是 `.bat` 里的写法。`::` 开头的行是**批处理注释**，粘进 PowerShell 会报「术语 '::' 不会被识别」。
@@ -189,7 +189,7 @@ pnpm 会为本地压缩包写入完整校验值（`CI=true` 下实测同样如�
 原版 DSH 上普通 CLI 直接可用，profile 名通常是 `web`，按 1.2 的实际结果替换：
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+dsh plugin --profile web add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 其余差异见附录 B。
@@ -507,7 +507,7 @@ function rejectElectronProfile(program, profile) {
 **① 没有桌面锁，普通 CLI 直接可用**（附录 A.1 不适用）：
 
 ```bash
-dsh plugin --profile web add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+dsh plugin --profile web add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 **② 适配器自动切到 web**。插件按 surface 选适配器：

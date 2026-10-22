@@ -66,7 +66,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Spec = "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7",
+    [string]$Spec = "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main",
     [string]$PackageName = "dsh-purge",
     [string]$DshHome = "",
     [string]$DshInstall = "",
@@ -89,16 +89,22 @@ if (-not $DshHome) {
     $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
 }
 
-# 本版本对应的发布产物：git 不通时的兜底来源（镜像按顺序尝试）
-$script:RepoSlug = "Potato1008ypy/dsh-purge-0.2.1rc2-fix"
-$script:ReleaseTag = "v1.1.71-dsh0.2.1rc2-fix.7"
-$script:AssetName = "dsh-purge-dsh0.2.1rc2-fix.7.tar.gz"
-$script:AssetVersion = "1.1.71-dsh0.2.1rc2-fix.7"
-$script:AssetMirrors = @(
-    "https://ghfast.top/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
-    "https://gh-proxy.com/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
-    "https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)"
-)
+# 本分支的发布产物：git 不通时的兜底来源（镜像按顺序尝试）。
+# 注意：本分支目前**没有发布 Release**，因此镜像列表为空；-FromRelease 或 git 解析失败时
+# 会直接给出明确提示，而不是对着三个 404 重试。发布 Release 后把 HasRelease 改成 $true
+# 并填好 ReleaseTag / AssetName 即可。
+$script:RepoSlug = "BaiCaiGanGan/dsh-purge-0.2.1rc2-fix"
+$script:HasRelease = $false
+$script:ReleaseTag = ""
+$script:AssetName = ""
+$script:AssetVersion = ""
+$script:AssetMirrors = if ($script:HasRelease) {
+    @(
+        "https://ghfast.top/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
+        "https://gh-proxy.com/https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)",
+        "https://github.com/$($script:RepoSlug)/releases/download/$($script:ReleaseTag)/$($script:AssetName)"
+    )
+} else { @() }
 
 function Say([string]$Text) { Write-Host $Text }
 function Ok([string]$Text) { Write-Host "  ✓ $Text" -ForegroundColor Green }
@@ -602,6 +608,9 @@ Say ""
 Say "安装中……"
 
 if ($FromRelease) {
+    if ($script:AssetMirrors.Count -eq 0 -and -not $AssetUrl) {
+        Die "本分支还没有发布 Release，-FromRelease 无包可下。请用默认的 github: 源，或用 -AssetUrl 指定一个可达的 .tar.gz。" 7
+    }
     $tgz = Get-ReleaseTarball -Urls (@($AssetUrl) + $script:AssetMirrors)
     if (-not $tgz) { Die "发布包下载失败（镜像均不可达）；可用 -AssetUrl 指定可达地址" 7 }
     $Spec = "file:" + ($tgz -replace '\\', '/')
@@ -615,7 +624,11 @@ $code = $r.Code
 if ($code -ne 0 -and -not $FromRelease -and (Test-GitSpec $Spec) -and (Test-GitResolveFailure $r.Output)) {
     Say ""
     Warn "git 连不上 github.com，改用发布包本地安装（file: 会写入完整 integrity）……"
-    $tgz = Get-ReleaseTarball -Urls (@($AssetUrl) + $script:AssetMirrors)
+    if ($script:AssetMirrors.Count -eq 0 -and -not $AssetUrl) {
+        Warn "本分支未发布 Release，没有可用的离线包；请让网络能连 github.com，或手动下载包后用 -Spec file:<路径> 安装"
+    }
+    $tgz = if ($script:AssetMirrors.Count -eq 0 -and -not $AssetUrl) { $null }
+        else { Get-ReleaseTarball -Urls (@($AssetUrl) + $script:AssetMirrors) }
     if ($tgz) {
         $Spec = "file:" + ($tgz -replace '\\', '/')
         Say ""

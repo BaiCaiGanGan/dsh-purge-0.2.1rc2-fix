@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/stargazers"><img src="https://img.shields.io/github/stars/Potato1008ypy/dsh-purge-0.2.1rc2-fix?logo=github&label=Stars" alt="GitHub stars"></a>
+  <a href="https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/stargazers"><img src="https://img.shields.io/github/stars/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix?logo=github&label=Stars" alt="GitHub stars"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-65a30d?style=flat" alt="MIT license"></a>
   <a href="https://github.com/YuJunZhiXue/dsh-purge"><img src="https://img.shields.io/badge/upstream-YuJunZhiXue%2Fdsh--purge-6b7280" alt="Upstream"></a>
-  <a href="https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases"><img src="https://img.shields.io/badge/version-1.1.71--dsh0.2.1rc2--fix.7-16a34a" alt="Version"></a>
+  <a href="https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/releases"><img src="https://img.shields.io/badge/version-1.1.71--dsh0.2.1rc2--fix.7-16a34a" alt="Version"></a>
   <a href="https://www.deepseek.com/harness/"><img src="https://img.shields.io/badge/dsh-0.2.1--rc.2-blue" alt="DSH"></a>
   <a href="QUICKSTART.md"><img src="https://img.shields.io/badge/install-one--page-16a34a" alt="One-page install"></a>
   <br>
@@ -96,7 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 没有仓库也行，一行拉取并执行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.7/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/main/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
 ```
 
 自动探测 DSH 安装目录与运行模式，装包后写入 `dsh.profile.bundles`——**重启即生效，不用再点启用**，等于把上面第 1、2 步合成一步。DSH 未退出时脚本拒绝执行（否则会撞 `ERR_PNPM_EPERM`）。完整开关见 [INSTALL.md](INSTALL.md) 2.0。
@@ -104,7 +104,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.gi
 ### 2 · 通过 `pnpm add` 安装（最直接）
 
 ```bash
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+pnpm add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 `pnpm add` 只写 `dependencies`，不登记 `dsh.profile.bundles`。装完须到「插件」页手动启用，再重启 DSH。
@@ -115,7 +115,7 @@ pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
 
 ```bat
 :: dsh-plugin.bat 是 desktop-cli.js 的封装，见 INSTALL.md
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+dsh-plugin.bat plugin --profile desktop add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 `dsh plugin --profile desktop` 会被直接拒绝（`profile "desktop" is managed exclusively by the Electron application`）；`<DSH 安装目录>\resources\app\lib\desktop-cli.js` 是唯一放行入口。这条路径会同时写入 `dependencies` 与 `dsh.profile.bundles`，需先退出 DSH。
@@ -439,7 +439,7 @@ $cands | Select-Object -Unique | Where-Object { $_ -and (Test-Path (Join-Path $_
 > 请改用本 fork：
 >
 > ```sh
-> git clone --branch v1.1.71-dsh0.2.1rc2-fix https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix.git "$DSH_HOME/plugins/dsh-purge"
+> git clone --branch main https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix.git "$DSH_HOME/plugins/dsh-purge"
 > # （没有 git？下载 Release 压缩包解压到这里；不要把 tarball 地址喂给 pnpm，见 INSTALL.md 7.5）
 > ```
 >

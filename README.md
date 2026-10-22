@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/stargazers"><img src="https://img.shields.io/github/stars/Potato1008ypy/dsh-purge-0.2.1rc2-fix?logo=github&label=Stars" alt="GitHub stars"></a>
+  <a href="https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/stargazers"><img src="https://img.shields.io/github/stars/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix?logo=github&label=Stars" alt="GitHub stars"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-65a30d?style=flat" alt="MIT license"></a>
   <a href="https://github.com/YuJunZhiXue/dsh-purge"><img src="https://img.shields.io/badge/upstream-YuJunZhiXue%2Fdsh--purge-6b7280" alt="Upstream"></a>
-  <a href="https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases"><img src="https://img.shields.io/badge/version-1.1.71--dsh0.2.1rc2--fix.7-16a34a" alt="Version"></a>
+  <a href="https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/releases"><img src="https://img.shields.io/badge/version-1.1.71--dsh0.2.1rc2--fix.7-16a34a" alt="Version"></a>
   <a href="https://www.deepseek.com/harness/"><img src="https://img.shields.io/badge/dsh-0.2.1--rc.2-blue" alt="DSH"></a>
   <a href="QUICKSTART.md"><img src="https://img.shields.io/badge/install-one--page-16a34a" alt="One-page install"></a>
   <br>
@@ -96,7 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 No clone needed — one line fetches and runs it:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/v1.1.71-dsh0.2.1rc2-fix.7/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -UseB https://raw.githubusercontent.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/main/install.ps1 -OutFile $env:TEMP\dsh-purge-install.ps1; & $env:TEMP\dsh-purge-install.ps1"
 ```
 
 It detects the DSH install directory and run mode, installs the package, then writes `dsh.profile.bundles` — **it takes effect on restart with no enable click**, collapsing steps 1 and 2 above into one. The script refuses to run while DSH is up (that path hits `ERR_PNPM_EPERM`). Full switch list: [INSTALL.en.md](INSTALL.en.md) 2.0.
@@ -104,7 +104,7 @@ It detects the DSH install directory and run mode, installs the package, then wr
 ### 2 · Installing with `pnpm add` (most direct)
 
 ```bash
-pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+pnpm add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 `pnpm add` writes `dependencies` only — it does not register `dsh.profile.bundles`. Afterwards you must enable it on the **Plugins page**, then restart DSH.
@@ -115,7 +115,7 @@ pnpm add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
 
 ```bat
 :: dsh-plugin.bat wraps desktop-cli.js; see INSTALL.en.md
-dsh-plugin.bat plugin --profile desktop add "github:Potato1008ypy/dsh-purge-0.2.1rc2-fix#v1.1.71-dsh0.2.1rc2-fix.7"
+dsh-plugin.bat plugin --profile desktop add "github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main"
 ```
 
 Calling `dsh plugin --profile desktop` directly is rejected (`profile "desktop" is managed exclusively by the Electron application`); `<DSH install dir>\resources\app\lib\desktop-cli.js` is the only gate that lets it through. That path writes **both** `dependencies` and `dsh.profile.bundles`; quit DSH first.
@@ -443,7 +443,7 @@ $cands | Select-Object -Unique | Where-Object { $_ -and (Test-Path (Join-Path $_
 > Use this fork instead:
 >
 > ```sh
-> git clone --branch v1.1.71-dsh0.2.1rc2-fix https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix.git "$DSH_HOME/plugins/dsh-purge"
+> git clone --branch main https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix.git "$DSH_HOME/plugins/dsh-purge"
 > # (no git? download the Release archive and extract it here — do not feed the tarball URL to pnpm, see INSTALL.en.md 7.5)
 > ```
 >
@@ -464,7 +464,7 @@ Without git: download [master.tar.gz](https://github.com/YuJunZhiXue/dsh-purge/a
 > Use this fork instead:
 >
 > ```sh
-> git clone --branch v1.1.71-dsh0.2.1rc2-fix https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix.git "$DSH_HOME/plugins/dsh-purge"
+> git clone --branch main https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix.git "$DSH_HOME/plugins/dsh-purge"
 > # (no git? download the Release archive and extract it here — do not feed the tarball URL to pnpm, see INSTALL.en.md 7.5)
 > ```
 >

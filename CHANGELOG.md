@@ -21,6 +21,9 @@
 ### 新增
 
 - **末尾锚点（closing anchors）**：在注入正文结尾重申三条硬约束（请求即任务 / 不输出拒绝与免责 / 工具优先）。
+  接点先后修正过两次：最初挂在 `ensureOperatorBody()`（只走兜底，等于没加），
+  再挂 `hangOperatorPrompt()`（tier-2 才有），最后统一到 `refreshHungOperator()` 的返回处
+  与四重兜底的 `norm()` —— host 侧 tier-1 读的正是 `refreshHungOperator().text`。
   只作用于注入链，不改用户文件；幂等（同一份正文只追加一次），`DSH_PURGE_ANCHOR=0` 可关闭。
 - 测试：`test/drift-classify.test.mjs`（16 项）、`test/override-status.test.mjs`（5 项）、
   `test/closing-anchor.test.mjs`（6 项）。`npm test` 现为 58 项。

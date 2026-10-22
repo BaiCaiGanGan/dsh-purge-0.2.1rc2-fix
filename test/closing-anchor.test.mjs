@@ -5,6 +5,11 @@
  */
 import { ensureOperatorBody, withClosingAnchor, CLOSING_ANCHOR_MARK, CLOSING_ANCHOR_TEXT } from "../lib/rules.js";
 import { hangOperatorPrompt, hungOperatorPrompt } from "../lib/core.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 let passed = 0;
 const failed = [];
@@ -76,6 +81,18 @@ check("ensureOperatorBody 的返回值带锚点", () => {
     if (prev === undefined) delete process.env.DSH_PURGE_ANCHOR;
     else process.env.DSH_PURGE_ANCHOR = prev;
   }
+});
+
+check("host 侧 tier-1 路径已接锚点（静态断言）", () => {
+  const src = readFileSync(join(ROOT, "lib", "index.js"), "utf8");
+  assert(
+    /text: core\.withClosingAnchor\(text \|\| resolved\.text\)/.test(src),
+    "refreshHungOperator 的返回 text 没经过 withClosingAnchor",
+  );
+  assert(
+    /const norm = \(s\) => core\.withClosingAnchor\(peelChatmlEnvelope/.test(src),
+    "四重兜底出口没经过 withClosingAnchor",
+  );
 });
 
 console.log(failed.length === 0 ? "\n全部通过：" + passed + " passed, 0 failed\n" : "\n失败：" + failed.length + " 项\n");

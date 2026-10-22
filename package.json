@@ -89,9 +89,9 @@
     },
     "install": {
       "preferred": "tarball",
-      "tarball": "https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/archive/refs/heads/master.tar.gz",
-      "zip": "https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/archive/refs/heads/master.zip",
-      "git": "https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix.git"
+      "tarball": "https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/archive/refs/heads/main.tar.gz",
+      "zip": "https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/archive/refs/heads/main.zip",
+      "git": "https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix.git"
     }
   },
   "publishConfig": {

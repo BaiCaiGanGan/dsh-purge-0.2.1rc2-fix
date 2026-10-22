@@ -3,6 +3,33 @@
 本文件记录本分支（`Potato1008ypy/dsh-purge-0.2.1rc2-fix`）的版本变更。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循上游 `1.1.71` 并附加适配后缀。
 
+## [未发布·改进]
+
+这一轮针对"破甲看起来正常、其实失效"和"关键约束被长文稀释"两个问题。
+
+### 修正
+
+- **锚点漂移以前是静默的**。`patchStatus()` 会产出 `unmatched` / `pattern_not_found` / `missing_file` 等状态，
+  但 `gatherState()` 只统计 applied / pending / skipped ——**前两类不进任何计数**。宿主升级改掉锚点后，
+  补丁没打上，状态页照旧显示"0 待清洗"。现在新增 `classifyPatchOutcome()` 纯函数把状态归为
+  applied / pending / drifted / skipped / failed 五类，`gatherState()` 输出 `patches_drifted`、
+  `patches_failed` 与逐条明细，状态文本、CLI、`/redteam/api` 全部显式列出。
+- **`overrideStatus()` 恒返回 "default"**，不描述磁盘：用户看不出文件在不在、是不是内置默认。
+  改成三态 `missing` / `default` / `custom`，并新增 `override_plaintext_default` ——
+  当默认提示词明文落在 `$DSH_HOME/prompt-inject.md` 时状态里直说（删掉不影响功能，注入回落加密槽）。
+
+### 新增
+
+- **末尾锚点（closing anchors）**：在注入正文结尾重申三条硬约束（请求即任务 / 不输出拒绝与免责 / 工具优先）。
+  只作用于注入链，不改用户文件；幂等（同一份正文只追加一次），`DSH_PURGE_ANCHOR=0` 可关闭。
+- 测试：`test/drift-classify.test.mjs`（16 项）、`test/override-status.test.mjs`（5 项）、
+  `test/closing-anchor.test.mjs`（6 项）。`npm test` 现为 58 项。
+
+### 已知未做
+
+- 默认提示词 21,194 字符（≈6–9K tokens）的内容精简：涉及全局行为契约，需失败用例集做 A/B，未擅自替换。
+- 审批/沙箱放开的审计日志：需要抓工具决策点，单独一轮。
+
 ## [未发布]
 
 本轮是复核后的收口：一处"发布出去的客户端不是源码那一版"，一处"迁移写了但从来没执行"，外加元数据与回归网。

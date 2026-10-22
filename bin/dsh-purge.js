@@ -23,12 +23,22 @@ function printStatus(state) {
   out.push(`  shim 目录      ${state.shim_dir || (shimNotNeeded ? "本端不需要 / n/a（桌面端不经 shim）" : "未定位 / not found")}`);
   out.push(`  备份 / backup  ${state.has_backup ? "有 / yes" : "无 / no"}`);
   out.push(`  注入文件       ${state.override_path}`);
-  out.push(`  注入状态       ${state.override_status}`);
+  out.push(`  注入状态       ${state.override_status}` + (state.override_plaintext_default ? "（与内置默认相同，明文可读，可删）" : ""));
   out.push("");
   out.push(`  补丁 ${state.patches_applied}/${core.ALL_PATCHES.length} 已清洗, ${state.patches_pending} 待清洗`
     + (state.patches_skipped ? `, ${state.patches_skipped} 跳过（按设计, 非待办）` : "")
     + (state.patches_na ? `, ${state.patches_na} 不适用` : ""));
   out.push(`  生效 ${state.effective === false ? "否 — app.asar 仍在, 本进程加载的是原始包；重启并挪走归档后才生效" : "是"}`);
+  if (state.patches_drifted) {
+    out.push(`  ！锚点漂移 ${state.patches_drifted} 条（宿主结构变了, 补丁没生效）：`);
+    for (const d of state.drifted_patches || []) {
+      out.push(`    [#${String(d.id).padEnd(2)}] ${d.name} — ${d.status} (${d.file || "?"})`);
+    }
+  }
+  if (state.patches_failed) {
+    out.push(`  ！应用失败 ${state.patches_failed} 条：`);
+    for (const f of state.failed_patches || []) out.push(`    [#${String(f.id).padEnd(2)}] ${f.name} — ${f.status}`);
+  }
   /* 没定位到宿主时逐条打印只会得到 82 行 "undefined"（看着像全挂了），
      汇总行已经说明"不适用"，这里就不再刷屏。 */
   if (state.ai_base) {

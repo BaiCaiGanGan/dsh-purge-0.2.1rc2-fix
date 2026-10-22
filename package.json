@@ -44,7 +44,7 @@
     "dsh-purge-repair.mjs"
   ],
   "scripts": {
-    "test": "node test/fixes.test.mjs && node test/migrate.test.mjs && node test/fts-fallback.test.mjs && node test/client-build.test.mjs",
+    "test": "node test/fixes.test.mjs && node test/migrate.test.mjs && node test/fts-fallback.test.mjs && node test/client-build.test.mjs && node test/drift-classify.test.mjs && node test/override-status.test.mjs && node test/closing-anchor.test.mjs",
     "test:fixes": "node test/fixes.test.mjs",
     "embed-prompt": "node scripts/embed-default-prompt.mjs",
     "build:client": "node scripts/build-client.mjs"

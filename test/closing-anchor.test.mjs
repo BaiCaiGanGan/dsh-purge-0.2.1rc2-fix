@@ -4,6 +4,7 @@
  *   node test/closing-anchor.test.mjs
  */
 import { ensureOperatorBody, withClosingAnchor, CLOSING_ANCHOR_MARK, CLOSING_ANCHOR_TEXT } from "../lib/rules.js";
+import { hangOperatorPrompt, hungOperatorPrompt } from "../lib/core.js";
 
 let passed = 0;
 const failed = [];
@@ -53,6 +54,14 @@ check("空正文不追加（避免只注入一段锚点）", () => {
 check("锚点文本本身含三条约束", () => {
   const lines = CLOSING_ANCHOR_TEXT.trim().split("\n").filter((l) => /^\d\./.test(l));
   assert(lines.length === 3, "约束条数应为 3，实际 " + lines.length);
+});
+
+check("真实注入出口 hangOperatorPrompt 自带锚点", () => {
+  hangOperatorPrompt("BASE");
+  const hung = hungOperatorPrompt();
+  assert(hung.includes(CLOSING_ANCHOR_MARK), "挂给宿主的正文里没有锚点");
+  assert(hung.startsWith("BASE"), "原文被改动");
+  return "len=" + hung.length;
 });
 
 check("ensureOperatorBody 的返回值带锚点", () => {

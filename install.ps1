@@ -533,7 +533,9 @@ Say "═══════════════════"
 if (-not $Spec) {
     $localPkg = Join-Path $PSScriptRoot "package.json"
     if (Test-Path $localPkg) {
-        $packDir = Join-Path $DshHome "cache\plugins"
+        # 放在 plugins\packages 而不是 cache：direct 模式会把 dependencies 写成
+        # file:<这个 tgz>，路径一旦被"清理缓存"删掉，依赖就解析失败。
+        $packDir = Join-Path $DshHome "plugins\packages"
         New-Item -ItemType Directory -Force -Path $packDir | Out-Null
         Say "本地包：从 $PSScriptRoot 打包（npm pack）……"
         # 必须在 clone 目录里打包：npm pack 读的是当前工作目录的 package.json。
@@ -715,6 +717,7 @@ if ($resolvedMode -eq "direct") {
     if ($backup) { Ok "旧版本已备份：$backup" }
     Set-ProfileDependency -Path $pkgPath -Name $PackageName -Value $Spec
     Ok "已写入 dependencies.$PackageName = $Spec"
+    Warn "这条依赖指向本地包：请保留 $tgzPath（不会被 cache 清理删掉）；想改回 GitHub 源，把 dependencies.$PackageName 换回 github:BaiCaiGanGan/dsh-purge-0.2.1rc2-fix#main 即可"
     $code = 0
 }
 else {

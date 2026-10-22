@@ -25,10 +25,6 @@
   再挂 `hangOperatorPrompt()`（tier-2 才有），最后统一到 `refreshHungOperator()` 的返回处
   与四重兜底的 `norm()` —— host 侧 tier-1 读的正是 `refreshHungOperator().text`。
   只作用于注入链，不改用户文件；幂等（同一份正文只追加一次），`DSH_PURGE_ANCHOR=0` 可关闭。
-- **新增 Claude 版提示词 `presets/prompt-inject.claude.md`**：默认那套是面向国产模型的硬对抗风格
-  （NEVER REFUSE、拒绝词黑名单、UNRESTRICTED SANDBOX），Claude 对这类表述鲁棒性极强，反而更容易
-  触发对齐。这一版换成"输出契约"写法（授权语境 + 直接给结果 + 占位符继续 + 工具优先），
-  体积 824 字符，也不怕中转截断 system。切换：复制到 `$DSH_HOME/prompt-inject.md`；回滚：恢复备份。
 - **文档补上 "clone 后直接跑脚本" 的主路径**：README / README.zh-CN / QUICKSTART 的安装段
   现在给出 `git clone → cd → install.ps1`（含 `-Apply` / `-DryRun`），并说明在 clone 里执行时
   走本地 `npm pack`、宿主没有 CLI 入口时自动切 direct 模式。

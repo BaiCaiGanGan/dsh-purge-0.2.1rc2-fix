@@ -12,7 +12,7 @@
   <a href="https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/stargazers"><img src="https://img.shields.io/github/stars/Potato1008ypy/dsh-purge-0.2.1rc2-fix?logo=github&label=Stars" alt="GitHub stars"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-65a30d?style=flat" alt="MIT license"></a>
   <a href="https://github.com/YuJunZhiXue/dsh-purge"><img src="https://img.shields.io/badge/upstream-YuJunZhiXue%2Fdsh--purge-6b7280" alt="Upstream"></a>
-  <a href="https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases"><img src="https://img.shields.io/badge/version-1.1.71--dsh0.2.1rc2--fix.2-16a34a" alt="Version"></a>
+  <a href="https://github.com/Potato1008ypy/dsh-purge-0.2.1rc2-fix/releases"><img src="https://img.shields.io/badge/version-1.1.71--dsh0.2.1rc2--fix.7-16a34a" alt="Version"></a>
   <a href="https://www.deepseek.com/harness/"><img src="https://img.shields.io/badge/dsh-0.2.1--rc.2-blue" alt="DSH"></a>
   <a href="QUICKSTART.md"><img src="https://img.shields.io/badge/install-one--page-16a34a" alt="One-page install"></a>
   <br>

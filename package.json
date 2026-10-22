@@ -44,7 +44,8 @@
     "dsh-purge-repair.mjs"
   ],
   "scripts": {
-    "test": "node test/fixes.test.mjs",
+    "test": "node test/fixes.test.mjs && node test/migrate.test.mjs && node test/fts-fallback.test.mjs && node test/client-build.test.mjs",
+    "test:fixes": "node test/fixes.test.mjs",
     "embed-prompt": "node scripts/embed-default-prompt.mjs",
     "build:client": "node scripts/build-client.mjs"
   },
@@ -88,9 +89,9 @@
     },
     "install": {
       "preferred": "tarball",
-      "tarball": "https://github.com/YuJunZhiXue/dsh-purge/archive/refs/heads/master.tar.gz",
-      "zip": "https://github.com/YuJunZhiXue/dsh-purge/archive/refs/heads/master.zip",
-      "git": "https://github.com/YuJunZhiXue/dsh-purge.git"
+      "tarball": "https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/archive/refs/heads/main.tar.gz",
+      "zip": "https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix/archive/refs/heads/main.zip",
+      "git": "https://github.com/BaiCaiGanGan/dsh-purge-0.2.1rc2-fix.git"
     }
   },
   "publishConfig": {
@@ -100,7 +101,7 @@
     "@deepseek-ai/cordis": "^4.0.1"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.13.0"
   },
   "dshTarget": "0.2.1-rc.2",
   "author": "Star (Potato1008ypy) — fork maintainer; upstream dsh-purge by 小杨",

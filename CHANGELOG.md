@@ -3,6 +3,25 @@
 本文件记录本分支（`Potato1008ypy/dsh-purge-0.2.1rc2-fix`）的版本变更。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循上游 `1.1.71` 并附加适配后缀。
 
+## [未发布]
+
+本轮是复核后的收口：一处"发布出去的客户端不是源码那一版"，一处"迁移写了但从来没执行"，外加元数据与回归网。
+
+### 修正
+
+- **`client.js` 是旧构建产物**。`client.js` 由 `scripts/build-client.mjs` 从 `lib/redteam/client.js` 生成，最后一次改源码后没有重建：仓库里的 `client.js` 与上游 1.1.71 的 `client.js` **逐字节相同**，所以源码里这几处修复在发布物里根本不存在——① 桥接响应用 `res.json()` 直解，非 JSON 错误体（网关 HTML、5xx 纯文本）直接抛异常；② 导出下载后立即 `revokeObjectURL`，部分浏览器断流；③ 倒计时用裸 `setInterval`，弹窗关闭/组件卸载后回调仍在跑。重建后 `client.js` 498880 → 497767 字节，`test/client-build.test.mjs` 从此把"源码改了没重建"挡在提交前。
+- **`migrate()` 里两个常量悬空**。`lib/redteam/schema.js` 的 `migrate()` 引用 `LEGACY_STAGE_MAP` 与 `SCOPE_SQL`，但两者原本只声明在 `store-core.js` 的模块作用域，schema.js 既没声明也没 import —— 运行期抛 `ReferenceError`，又被两处 `catch { }` 吞掉。后果是"迁移跑过了但什么都没写"：老库的 `attack_step.stage_code` 与 `asset.scope` 永远是 NULL，只能靠读侧 `COALESCE` 兜。现把两个常量移进 schema.js（它是 store-core 的下游，反向 import 会成环），store-core 从那里取并保持再导出。实测：`pivot → boundary`、`10.0.0.5 → internal` 回填生效。
+- **`engines` 与运行时事实不符**。事实库用 `node:sqlite`（Node 22.5 引入，22.13 起免 flag），`engines.node` 却写 `>=18`：Node 18/20 上装得上、插件加载即失败。改为 `>=22.13.0`，并在 `install.ps1` 加一步运行时预检（低于 22.13 只告警不阻断，桌面端自带 Node 22.x 不受影响）。
+- **`dsh.install` 指向上游仓库**。`repository` / `homepage` / `bugs` 都指本分支，唯独 `dsh.install.{tarball,zip,git}` 仍指 `YuJunZhiXue/dsh-purge`：市场一键装拿到的会是不适配 0.2.1-rc.2 的上游 master。三处统一到本分支。
+
+### 回归网
+
+- 新增 `test/migrate.test.mjs`（6 项）：常量可见性、stage_code 回填、scope 回填、迁移幂等、显式阶段不被覆盖。
+- 新增 `test/fts-fallback.test.mjs`（2 项）：schema.js 注释里早已引用这个文件，实际并不存在；现补上，用 `REDTEAM_NO_FTS5=1` 强制走降级分支。
+- 新增 `test/client-build.test.mjs`（2 项）：备份 → 重建 → 字节比对 → 还原，发布物与源码不再允许各走各的。
+- 新增 `.github/workflows/ci.yml`：Node 22.13 上跑 `npm test`、重建后 `git diff --exit-code client.js`、`npm pack --dry-run`。
+- README / README.zh-CN 版本徽章 `fix.2` → `fix.7`（与 `package.json` 对齐）。
+
 ## [1.1.71-dsh0.2.1rc2-fix.7] — 2026-10-21
 
 两条问题由用户复核发现，先复现再修。本轮只动 `install.ps1`，插件运行时逻辑未变。

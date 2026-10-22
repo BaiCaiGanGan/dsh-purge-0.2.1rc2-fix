@@ -4038,20 +4038,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(req),
-    }).then(async (res) => {
-      const text = await res.text().catch(() => '')
-      let data = null
-      try { data = text ? JSON.parse(text) : null } catch {
-        return { ok: false, error: res.status + ' non-json: ' + String(text).slice(0, 120) }
-      }
-      if (!res.ok) {
-        return Object.assign({}, data || {}, {
-          ok: false,
-          error: (data && (data.error || data.message)) || (res.status + ' ' + res.statusText),
-        })
-      }
-      return data
-    })
+    }).then((res) => res.json())
 
     let ui = { open: true, tab: 'assets' }
     const subs = new Set()
@@ -5571,8 +5558,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
           a.href = url
           a.download = 'report-' + String(label || 'score').replace(/[^\w.\-]/g, '_') + '.md'
           a.click()
-          /* 立刻 revoke 会在部分浏览器里让 click 启动的下载断流,延后一拍 */
-          setTimeout(() => { try { URL.revokeObjectURL(url) } catch { /* ignore */ } }, 1000)
+          URL.revokeObjectURL(url)
           setMsg({ ok: '已下载：' + label })
         } catch (e) { setMsg({ err: '下载失败：' + ((e && e.message) || e) }) }
       }
@@ -7167,17 +7153,6 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
       const [open, setOpen] = React.useState(false)
       const [msg, setMsg] = React.useState(null)
       const [countdown, setCountdown] = React.useState(0)
-      const countdownRef = React.useRef(null)
-      const clearCountdown = React.useCallback(() => {
-        if (countdownRef.current) { try { clearInterval(countdownRef.current) } catch { /* ignore */ } }
-        countdownRef.current = null
-      }, [])
-      React.useEffect(() => () => clearCountdown(), [clearCountdown])
-      const closeModal = React.useCallback(() => {
-        clearCountdown()
-        setCountdown(0)
-        setOpen(false)
-      }, [clearCountdown])
 
       const check = (silent) => {
         if (!silent) setBusy(true)
@@ -7208,10 +7183,9 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
           setMsg({ ok: '已安装 ' + (r.installed || '') + '，正在重启当前宿主…' })
           /* 重启会断开这个页面：倒计时提示用户稍后刷新 */
           setCountdown(6)
-          clearCountdown()
-          countdownRef.current = setInterval(() => {
+          const t = setInterval(() => {
             setCountdown((n) => {
-              if (n <= 1) { clearCountdown(); window.location.reload(); return 0 }
+              if (n <= 1) { clearInterval(t); window.location.reload(); return 0 }
               return n - 1
             })
           }, 1000)
@@ -7243,7 +7217,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
               title: '重新检查 npm 上的最新版本',
             }, busy ? '检查中…' : '检查更新'),
         open
-          ? h('div', { className: 'rt-modal', 'aria-hidden': 'true', onClick: closeModal },
+          ? h('div', { className: 'rt-modal', 'aria-hidden': 'true', onClick: () => setOpen(false) },
               h('div', { className: 'rt-modal-box', onClick: (e) => e.stopPropagation() },
                 h('h4', { style: { marginTop: 0 } }, '更新 RedTeam 模式'),
                 h('div', { className: 'rt-kv' }, h('b', null, '当前版本'), h('span', null, current || '未知')),
@@ -7269,7 +7243,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
                   ? h('div', { className: 'rt-foot' }, '宿主正在重启，' + countdown + ' 秒后自动刷新页面…')
                   : null,
                 h('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 } },
-                  h('button', { className: 'rt-btn', onClick: closeModal }, '关闭'),
+                  h('button', { className: 'rt-btn', onClick: () => setOpen(false) }, '关闭'),
                   h('button', {
                     className: 'rt-btn rt-btn-primary',
                     disabled: busy || blockers.length > 0 || mode === 'dev',

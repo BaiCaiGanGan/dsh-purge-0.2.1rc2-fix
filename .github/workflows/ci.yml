@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13"
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Test
+        run: npm test
+      - name: Build artifact must be committed
+        run: |
+          npm run build:client
+          git diff --exit-code -- client.js
+      - name: Package must stay installable
+        run: npm pack --dry-run

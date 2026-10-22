@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   一键安装 dsh-purge：自动探测 DSH 安装目录与运行模式，安装插件并写入 dsh.profile.bundles。
 

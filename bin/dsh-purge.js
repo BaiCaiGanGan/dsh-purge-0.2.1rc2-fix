@@ -19,16 +19,26 @@ function printStatus(state) {
   } else {
     out.push("  插件根 / root  " + core.missingAiBaseMessage());
   }
-  out.push(`  shim 目录      ${state.shim_dir || "未定位 / not found"}`);
+  const shimNotNeeded = state.surface === "desktop" && !state.shim_dir;
+  out.push(`  shim 目录      ${state.shim_dir || (shimNotNeeded ? "本端不需要 / n/a（桌面端不经 shim）" : "未定位 / not found")}`);
   out.push(`  备份 / backup  ${state.has_backup ? "有 / yes" : "无 / no"}`);
   out.push(`  注入文件       ${state.override_path}`);
   out.push(`  注入状态       ${state.override_status}`);
   out.push("");
-  out.push(`  补丁 ${state.patches_applied}/${core.ALL_PATCHES.length} 已清洗, ${state.patches_pending} 待清洗`);
-  for (const p of core.ALL_PATCHES) {
-    const s = state.patch_status[p.id];
-    const mark = s === "applied" ? "✓" : s === "pending" ? "✗" : "·";
-    out.push(`    ${mark} [#${String(p.id).padEnd(2)}] ${p.name.padEnd(30)} ${p.layer}/${p.layer_en} — ${s}`);
+  out.push(`  补丁 ${state.patches_applied}/${core.ALL_PATCHES.length} 已清洗, ${state.patches_pending} 待清洗`
+    + (state.patches_skipped ? `, ${state.patches_skipped} 跳过（按设计, 非待办）` : "")
+    + (state.patches_na ? `, ${state.patches_na} 不适用` : ""));
+  out.push(`  生效 ${state.effective === false ? "否 — app.asar 仍在, 本进程加载的是原始包；重启并挪走归档后才生效" : "是"}`);
+  /* 没定位到宿主时逐条打印只会得到 82 行 "undefined"（看着像全挂了），
+     汇总行已经说明"不适用"，这里就不再刷屏。 */
+  if (state.ai_base) {
+    for (const p of core.ALL_PATCHES) {
+      const s = state.patch_status[p.id];
+      const mark = s === "applied" ? "✓" : s === "pending" ? "✗" : "·";
+      out.push(`    ${mark} [#${String(p.id).padEnd(2)}] ${p.name.padEnd(30)} ${p.layer}/${p.layer_en} — ${s}`);
+    }
+  } else {
+    out.push("    （宿主未定位：跳过逐条状态；设 DSH_BASE 指向 @deepseek-ai 目录可查看）");
   }
   out.push("");
   out.push(`  shim: dsh.cmd=${state.shim_cmd}  dsh.ps1=${state.shim_ps1}  dsh=${state.shim_bin}`);

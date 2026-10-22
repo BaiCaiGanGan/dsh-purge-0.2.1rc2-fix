@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   一键安装 dsh-purge：自动探测 DSH 安装目录与运行模式，安装插件并写入 dsh.profile.bundles。
 
@@ -471,6 +471,23 @@ if ($Spec -match '^https?://' -and $Spec -match '\.(tgz|tar\.gz|tar)$') {
     Die "拒绝远端 tarball 地址：宿主给 pnpm 带 CI=true，会写出缺 integrity 的锁文件条目并冻结整个 profile（见 INSTALL.md 7.5）。请改用 github: 源或本地 file: 压缩包。" 2
 }
 Ok "安装源：$Spec"
+
+# 1.5) 运行时预检：演练台事实库用 node:sqlite（Node 22.5 起才有，22.13 起不用加 flag）。
+#      Node 18/20 上装得上、但 store 插件加载即失败，报错离原因很远，所以先提示一句。
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if ($nodeCmd) {
+    $nodeVerRaw = (& node -v 2>$null)
+    $m = [regex]::Match([string]$nodeVerRaw, 'v(\d+)\.(\d+)')
+    if ($m.Success) {
+        $major = [int]$m.Groups[1].Value
+        $minor = [int]$m.Groups[2].Value
+        if ($major -lt 22 -or ($major -eq 22 -and $minor -lt 13)) {
+            Warn "node $nodeVerRaw 低于 22.13：演练台的事实库（node:sqlite）在这个版本上不可用，界面会报 store 加载失败。桌面端自带 Node 22.x 不受影响；命令行 / web 模式请升级 Node 到 22.13+。"
+        } else {
+            Ok "node $nodeVerRaw（node:sqlite 可用）"
+        }
+    }
+}
 
 # 2) 安装目录与模式
 $installDir = Find-InstallDir $DshInstall
